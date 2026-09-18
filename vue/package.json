@@ -1,0 +1,19 @@
+{
+  "name": "animation-town",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "动画小镇 - 以动画为主题的儿童购物 App 登录/注册页（Vue 3 + Vite）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.0"
+  }
+}
