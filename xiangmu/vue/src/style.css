@@ -1,0 +1,118 @@
+/* ============ 全局主题与公共样式 ============ */
+:root {
+  --sky-1: #aee7ff;
+  --sky-2: #c9b8ff;
+  --sky-3: #ffd6ec;
+  --sun: #ffe27a;
+  --ink: #4a3a6b;
+  --pink: #ff8fc4;
+  --pink-d: #ff5fa8;
+  --mint: #7ee0c0;
+  --blue: #6fb8ff;
+  --yellow: #ffd23f;
+  --card: #fffdf9;
+  --shadow: rgba(106, 76, 160, 0.22);
+  --font: "Comic Sans MS", "Baloo 2", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: linear-gradient(160deg, var(--sky-1) 0%, var(--sky-2) 48%, var(--sky-3) 100%);
+  overflow-x: hidden;
+  min-height: 100vh;
+  position: relative;
+}
+
+#app { position: relative; z-index: 1; }
+
+/* ============ 背景装饰 ============ */
+.bg-deco { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+
+.cloud {
+  position: absolute;
+  background: #fff;
+  border-radius: 100px;
+  opacity: 0.85;
+  filter: drop-shadow(0 8px 12px rgba(120, 120, 180, .15));
+}
+.cloud::before, .cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%; }
+.cloud.c1 { width: 160px; height: 50px; top: 10%; left: -200px; animation: drift 26s linear infinite; }
+.cloud.c1::before { width: 70px; height: 70px; top: -30px; left: 25px; }
+.cloud.c1::after  { width: 50px; height: 50px; top: -18px; left: 90px; }
+.cloud.c2 { width: 120px; height: 40px; top: 34%; left: -200px; animation: drift 34s linear infinite 4s; transform: scale(.8); }
+.cloud.c2::before { width: 55px; height: 55px; top: -24px; left: 20px; }
+.cloud.c2::after  { width: 40px; height: 40px; top: -14px; left: 70px; }
+.cloud.c3 { width: 200px; height: 60px; top: 64%; left: -260px; animation: drift 40s linear infinite 8s; opacity: .7; }
+.cloud.c3::before { width: 85px; height: 85px; top: -38px; left: 35px; }
+.cloud.c3::after  { width: 60px; height: 60px; top: -22px; left: 110px; }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 320px)); } }
+
+.sun {
+  position: absolute; top: 6%; right: 8%;
+  width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 38%, #fff6c8, var(--sun));
+  box-shadow: 0 0 0 14px rgba(255, 226, 122, .25), 0 0 50px rgba(255, 210, 80, .6);
+  animation: pulse 5s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+.star {
+  position: absolute; font-size: 22px; color: #fff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, .8);
+  animation: twinkle 3s ease-in-out infinite;
+}
+@keyframes twinkle { 0%, 100% { opacity: .4; transform: scale(.8) rotate(0); } 50% { opacity: 1; transform: scale(1.2) rotate(20deg); } }
+
+.balloon {
+  position: absolute; bottom: -120px; width: 56px; height: 70px;
+  border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+  animation: floatUp 14s ease-in infinite; opacity: .85;
+}
+.balloon::after { content: ""; position: absolute; bottom: -22px; left: 50%; width: 1px; height: 22px; background: rgba(80, 60, 120, .4); }
+.balloon.b1 { left: 12%; background: var(--pink); }
+.balloon.b2 { left: 78%; background: var(--blue); animation-delay: 5s; }
+.balloon.b3 { left: 60%; background: var(--mint); animation-delay: 9s; }
+@keyframes floatUp { 0% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-30vh) rotate(4deg); } 100% { transform: translateY(-110vh) rotate(-4deg); } }
+
+/* ============ 卡片公共样式 ============ */
+.card {
+  position: relative; z-index: 2;
+  width: min(94vw, 440px);
+  margin: 24px auto;
+  background: var(--card);
+  border-radius: 34px;
+  padding: 26px 26px 30px;
+  box-shadow: 0 22px 50px var(--shadow), inset 0 0 0 6px #fff;
+  border: 5px solid #fff;
+  animation: pop .7s cubic-bezier(.18, 1.4, .4, 1) both;
+  text-align: center;
+}
+@keyframes pop { 0% { transform: translateY(40px) scale(.92); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.card::before {
+  content: ""; position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  width: 70%; height: 22px;
+  background: radial-gradient(circle at 10px 0, var(--pink) 9px, transparent 10px) repeat-x;
+  background-size: 20px 20px; opacity: .9;
+}
+.card.reg::before { background: radial-gradient(circle at 10px 0, var(--mint) 9px, transparent 10px) repeat-x; background-size: 20px 20px; }
+
+.mascot { margin-top: 4px; animation: bob 3.2s ease-in-out infinite; }
+.mascot svg { width: 116px; height: 116px; }
+@keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(2deg); } }
+
+.title { margin: 6px 0 2px; font-size: 28px; letter-spacing: 1px; color: var(--pink-d); text-shadow: 2px 2px 0 #ffe0f0; }
+.subtitle { margin: 0 0 16px; font-size: 14px; color: #8a7aa8; }
+
+/* ============ 提示气泡 & 彩纸 ============ */
+.toast {
+  position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-120%);
+  background: #fff; color: var(--ink); padding: 12px 22px; border-radius: 16px;
+  box-shadow: 0 10px 26px var(--shadow); font-size: 15px; z-index: 9; transition: .4s;
+  border: 3px solid var(--mint); max-width: 90vw;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.confetti { position: fixed; top: -10px; width: 10px; height: 14px; z-index: 8; border-radius: 2px; }
