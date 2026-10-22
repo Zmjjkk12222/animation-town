@@ -1,48 +1,102 @@
 @echo off
-REM ============================================================
-REM  åŠ¨ç”»å°é•‡åŽç«¯å¯åŠ¨è„šæœ¬ (Spring Boot) v2
-REM
-REM  v2 æ”¹è¿›ï¼ˆä¿®å¤å¯åŠ¨ä¸äº†çš„é—®é¢˜ï¼‰:
-REM   1. Maven ä¸å†å†™æ­» "C:\Users\Administrator\..." è·¯å¾„ï¼Œ
-REM      ä¼˜å…ˆä½¿ç”¨é¡¹ç›®è‡ªå¸¦ tools\apache-maven-3.9.16ï¼Œå…¶æ¬¡æ‰¾ç³»ç»Ÿ mvnã€‚
-REM   2. è‡ªåŠ¨æŽ¢æµ‹ JAVA_HOMEã€‚
-REM
-REM  ç«¯å£è¯´æ˜Ž:
-REM  æœ¬æœº IDE ä¼šå‘å­è¿›ç¨‹æ³¨å…¥ SERVER__PORT çŽ¯å¢ƒå˜é‡ï¼ˆæŒ‡å‘ IDE è‡ªèº«ç«¯å£ï¼‰ã€‚
-REM  Spring Boot çš„å®½æ¾ç»‘å®šä¼šæŠŠ SERVER__PORT è§£æžä¸º server.portï¼Œ
-REM  è¦†ç›– application-dev.properties é‡Œçš„ server.port=8081ï¼Œ
-REM  å¯¼è‡´åŽç«¯åŽ»æŠ¢å  IDE ç«¯å£è€Œå¯åŠ¨å¤±è´¥ï¼ˆPort xxx was already in useï¼‰ã€‚
-REM  è¿™é‡Œæ˜¾å¼æŠŠç«¯å£å›ºå®šä¸º 8081 æ¥è§„é¿è¯¥é—®é¢˜ã€‚
-REM ============================================================
 setlocal enabledelayedexpansion
-set "ROOT=%~dp0"
-set "SERVER__PORT=8081"
-set "SERVER__HOST="
+title ¶¯»­Ð¡Õò - ºó¶ËÆô¶¯
 
-rem -- Maven: ä¼˜å…ˆé¡¹ç›®è‡ªå¸¦ï¼Œå…¶æ¬¡ç³»ç»Ÿ PATH --
-set "MVN=%ROOT%tools\apache-maven-3.9.16\bin\mvn.cmd"
-if not exist "%MVN%" (
+rem ============================================================
+rem  ¶¯»­Ð¡Õò ºó¶ËÆô¶¯½Å±¾ (Spring Boot)
+rem
+rem  ÐÞ¸´¼ÇÂ¼:
+rem   1. ÐÞÕý Maven Â·¾¶: Ê¹ÓÃÉÏ¼¶Ä¿Â¼ xiangmu\tools ÀïµÄ Maven¡£
+rem   2. Æô¶¯Ê§°Ü²»ÔÙÉÁÍË: ¼ì²âÍË³öÂë, Ê§°ÜÊ±ÌáÊ¾²¢ÔÝÍ£¡£
+rem   3. ¶Ë¿Ú¹Ì¶¨ 8081: »·¾³±äÁ¿ + Æô¶¯²ÎÊýË«±£ÏÕ, ¸²¸Ç IDE ×¢ÈëµÄ¶Ë¿Ú¡£
+rem   4. ±¾ÎÄ¼þ±ØÐë±£´æÎª ANSI(GBK) ±àÂë, ·ñÔòÖÐÎÄÏµÍ³ cmd »áÂÒÂë¡£
+rem ============================================================
+
+set "SCRIPT_DIR=%~dp0"
+rem ÏîÄ¿¸ùÄ¿Â¼(xiangmu): ½Å±¾Î»ÓÚ springBootTest ×ÓÄ¿Â¼, ÏòÉÏ»ØÍËÒ»¼¶
+set "PROJ_DIR=%SCRIPT_DIR%..\"
+set "BACKEND=%SCRIPT_DIR%"
+set "MVN=%PROJ_DIR%tools\apache-maven-3.9.16\bin\mvn.cmd"
+set "MVNW=%SCRIPT_DIR%mvnw.cmd"
+
+rem ¹Ì¶¨¶Ë¿Ú, ¸²¸Ç IDE ¿ÉÄÜ×¢ÈëµÄ SERVER__PORT / SERVER_PORT
+set "SERVER_PORT=8081"
+set "SERVER__PORT=8081"
+set "SERVER_HOST="
+
+echo.
+echo ==========================================
+echo   ¶¯»­Ð¡Õò ºó¶ËÆô¶¯ (Spring Boot)
+echo ==========================================
+echo.
+
+rem ---------- 1. ¼ì²é Maven ----------
+echo [1/4] ¼ì²é Maven...
+if exist "%MVN%" (
+    echo   Ê¹ÓÃÏîÄ¿×Ô´ø Maven: %MVN% [OK]
+) else if exist "%MVNW%" (
+    set "MVN=%MVNW%"
+    echo   Ê¹ÓÃÏîÄ¿×Ô´ø Maven Wrapper: %MVN% [OK]
+) else (
     where mvn >nul 2>&1
     if errorlevel 1 (
-        echo [é”™è¯¯] æœªæ‰¾åˆ° Maven! è¯·è¿è¡Œ %ROOT%tools\setup-maven.bat æˆ–è‡ªè¡Œå®‰è£…ã€‚
-        pause
-        exit /b 1
+        echo   [´íÎó] Î´ÕÒµ½ Maven! ÏîÄ¿ tools Ä¿Â¼Ã»ÓÐ apache-maven,
+        echo           Ò²Ã»ÓÐ mvnw, ÇÒÏµÍ³ PATH ÀïÃ»ÓÐ mvn ÃüÁî¡£
+        echo           ½â¾ö°ì·¨: ÔËÐÐ tools\setup-maven.bat ×Ô¶¯ÏÂÔØ, »ò×ÔÐÐ°²×° Maven¡£
+        goto :finish
     )
     set "MVN=mvn"
+    echo   Ê¹ÓÃÏµÍ³ Maven [OK]
 )
 
-rem -- JAVA_HOME: æœªè®¾ç½®æ—¶è‡ªåŠ¨æŽ¢æµ‹ --
-if not defined JAVA_HOME (
+rem ---------- 2. ¼ì²é Java ----------
+echo [2/4] ¼ì²é Java...
+if defined JAVA_HOME (
+    echo   JAVA_HOME = !JAVA_HOME! [OK]
+) else (
     set "JEXE="
     for /f "delims=" %%i in ('where java 2^>nul') do (
         if not defined JEXE set "JEXE=%%i"
     )
-    if defined JEXE set "JAVA_HOME=!JEXE:\bin\java.exe=!"
+    if not defined JEXE (
+        echo   [´íÎó] Î´ÕÒµ½ Java! Çë°²×° JDK 17 ²¢ÉèÖÃ JAVA_HOME, »ò½« java ¼ÓÈë PATH¡£
+        goto :finish
+    )
+    set "JAVA_HOME=!JEXE:\bin\java.exe=!"
+    echo   ×Ô¶¯Ì½²â JAVA_HOME = !JAVA_HOME! [OK]
 )
 
-echo ä½¿ç”¨ Maven: %MVN%
-echo JAVA_HOME : %JAVA_HOME%
-echo åŽç«¯ç«¯å£ : 8081
+rem ---------- 3. ¼ì²é MySQL ----------
+echo [3/4] ¼ì²é MySQL ·þÎñ(3306)...
+powershell -NoProfile -Command "$c=New-Object Net.Sockets.TcpClient;try{$c.Connect('127.0.0.1',3306);exit 0}catch{exit 1}finally{$c.Close()}" >nul 2>&1
+if errorlevel 1 (
+    echo   [¾¯¸æ] MySQL Î´Æô¶¯! ºó¶Ë¿ÉÄÜÒòÁ¬²»ÉÏÊý¾Ý¿â¶øÆô¶¯Ê§°Ü¡£
+    echo           ÇëÏÈÔÚ"·þÎñ"ÖÐÆô¶¯ MySQL80, »ò¹ÜÀíÔ±ÔËÐÐ: net start MySQL80
+) else (
+    echo   MySQL Õý³£ [OK]
+)
 
-cd /d "%ROOT%"
-call "%MVN%" spring-boot:run
+rem ---------- 4. Æô¶¯ºó¶Ë ----------
+echo [4/4] Æô¶¯ºó¶Ë Spring Boot (¶Ë¿Ú 8081)...
+echo   ÔËÐÐÈÕÖ¾ÓÉÓ¦ÓÃÍ¬Ê±Ð´Èë log\xx.log
+echo   °´ Ctrl+C ¿ÉÍ£Ö¹ºó¶Ë¡£
+echo.
+cd /d "%BACKEND%"
+"%MVN%" spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
+set "RC=!errorlevel!"
+echo.
+if not !RC!==0 (
+    echo ==========================================
+    echo   [Ê§°Ü] ºó¶ËÆô¶¯Ê§°Ü (ÍË³öÂë !RC!)¡£
+    echo   Çë²é¿´ÉÏ·½±¨´í, »ò´ò¿ªÓ¦ÓÃÈÕÖ¾:
+    echo   %BACKEND%log\xx.log
+    echo ==========================================
+) else (
+    echo ºó¶ËÒÑÍ£Ö¹ (ÍË³öÂë 0)¡£
+)
+goto :finish
+
+:finish
+echo.
+echo °´ÈÎÒâ¼ü¹Ø±Õ±¾´°¿Ú...
+pause >nul

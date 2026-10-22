@@ -1,18 +1,11 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
-title åŠ¨ç”»å°é•‡ - ä¸€é”®å¯åŠ¨
+title ¶¯»­Ğ¡Õò - Ò»¼üÆô¶¯
 
 rem ============================================================
-rem  åŠ¨ç”»å°é•‡ä¸€é”®å¯åŠ¨è„šæœ¬ v2
-rem  ä½œç”¨: æ£€æŸ¥Java/Maven/MySQL -> åˆå§‹åŒ–æ•°æ®åº“ -> å¯åŠ¨åç«¯(8081) -> å¯åŠ¨å‰ç«¯(5173) -> æ‰“å¼€æµè§ˆå™¨
-rem
-rem  v2 æ”¹è¿›ï¼ˆä¿®å¤å¯åŠ¨ä¸äº†çš„é—®é¢˜ï¼‰:
-rem   1. ä¸å†å†™æ­» "C:\Users\Administrator\..." çš„ Maven è·¯å¾„ï¼ˆæ¢ç”µè„‘/æ¢ç”¨æˆ·å°±å¤±æ•ˆï¼‰ï¼Œ
-rem      æ”¹ä¸ºä¼˜å…ˆä½¿ç”¨é¡¹ç›®è‡ªå¸¦ tools\apache-maven-3.9.16ï¼Œå…¶æ¬¡æ‰¾ç³»ç»Ÿ mvnã€‚
-rem   2. è‡ªåŠ¨æ¢æµ‹ JAVA_HOMEï¼ˆåªè¦ PATH é‡Œæœ‰ java å°±èƒ½è·‘ï¼‰ã€‚
-rem   3. è‡ªåŠ¨æ¢æµ‹ npmï¼›vue\node_modules ç¼ºå¤±æ—¶å…ˆè‡ªåŠ¨å®‰è£…ä¾èµ–ã€‚
-rem   4. ä¾èµ–ä¸‹è½½èµ°é˜¿é‡Œäº‘é•œåƒï¼ˆC:\Users\<ä½ >\.m2\settings.xmlï¼‰ã€‚
+rem  ¶¯»­Ğ¡ÕòÒ»¼üÆô¶¯½Å±¾
+rem  ×÷ÓÃ: ¼ì²éJava/Maven/MySQL -> ³õÊ¼»¯Êı¾İ¿â -> Æô¶¯ºó¶Ë(8081) -> Æô¶¯Ç°¶Ë(5173) -> ´ò¿ªä¯ÀÀÆ÷
+rem  ×¢Òâ: ±¾ÎÄ¼ş±ØĞë±£´æÎª ANSI(GBK) ±àÂë, ·ñÔòÖĞÎÄÏµÍ³ cmd »áÂÒÂë¡£
 rem ============================================================
 
 set "ROOT=%~dp0"
@@ -22,95 +15,96 @@ set "MYSQL_EXE=C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
 set "DB_USER=root"
 set "DB_PASS=123456"
 
-rem -- é¡¹ç›®è‡ªå¸¦ Mavenï¼ˆé¦–é€‰ï¼‰--
+rem -- ÏîÄ¿×Ô´ø Maven£¨Ê×Ñ¡£©--
 set "MVN=%ROOT%tools\apache-maven-3.9.16\bin\mvn.cmd"
 
-rem -- å¼ºåˆ¶åç«¯ç«¯å£ä¸º 8081ï¼Œè¦†ç›– IDE æ³¨å…¥çš„ SERVER__PORTï¼ˆå¦åˆ™ä¼šå»æŠ¢ IDE ç«¯å£å¯¼è‡´"Port already in use"ï¼‰--
+rem -- ºó¶Ë¶Ë¿Ú¹Ì¶¨ 8081, ¸²¸Ç IDE ×¢ÈëµÄ SERVER__PORT --
 set "SERVER__PORT=8081"
 set "SERVER__HOST="
 
 echo.
 echo  ==========================================
-echo    åŠ¨ç”»å°é•‡ Animation Town ä¸€é”®å¯åŠ¨
+echo    ¶¯»­Ğ¡Õò Animation Town Ò»¼üÆô¶¯
 echo  ==========================================
 echo.
 
-rem ---------- 0. æ£€æŸ¥ Java ----------
-echo  [0/6] æ£€æŸ¥ Java...
+rem ---------- 0. ¼ì²é Java ----------
+echo  [0/6] ¼ì²é Java...
 if defined JAVA_HOME (
-    echo        JAVA_HOME = !JAVA_HOME! âœ“
+    echo        JAVA_HOME = !JAVA_HOME! [OK]
 ) else (
     set "JEXE="
     for /f "delims=" %%i in ('where java 2^>nul') do (
         if not defined JEXE set "JEXE=%%i"
     )
     if not defined JEXE (
-        echo        [é”™è¯¯] æœªæ‰¾åˆ° Java! è¯·å®‰è£… JDK 17 æˆ–è®¾ç½® JAVA_HOMEã€‚
+        echo        [´íÎó] Î´ÕÒµ½ Java! Çë°²×° JDK 17 »òÉèÖÃ JAVA_HOME¡£
         pause
         exit /b 1
     )
     set "JAVA_HOME=!JEXE:\bin\java.exe=!"
-    echo        è‡ªåŠ¨æ¢æµ‹ JAVA_HOME = !JAVA_HOME! âœ“
+    echo        ×Ô¶¯Ì½²â JAVA_HOME = !JAVA_HOME! [OK]
 )
 
-rem ---------- 1. æ£€æŸ¥ Maven ----------
-echo  [1/6] æ£€æŸ¥ Maven...
+rem ---------- 1. ¼ì²é Maven ----------
+echo  [1/6] ¼ì²é Maven...
 if exist "%MVN%" (
-    echo        ä½¿ç”¨é¡¹ç›®è‡ªå¸¦ Maven: %MVN% âœ“
+    echo        Ê¹ÓÃÏîÄ¿×Ô´ø Maven: %MVN% [OK]
 ) else (
     where mvn >nul 2>&1
     if errorlevel 1 (
-        echo        [é”™è¯¯] æœªæ‰¾åˆ° Maven!
-        echo        é¡¹ç›® tools ç›®å½•é‡Œæ²¡æœ‰ apache-mavenï¼Œç³»ç»Ÿ PATH é‡Œä¹Ÿæ²¡æœ‰ mvn å‘½ä»¤ã€‚
-        echo        è§£å†³åŠæ³•: è¿è¡Œ tools\setup-maven.bat è‡ªåŠ¨ä¸‹è½½ï¼Œæˆ–è‡ªè¡Œå®‰è£… Mavenã€‚
+        echo        [´íÎó] Î´ÕÒµ½ Maven!
+        echo        ÏîÄ¿ tools Ä¿Â¼ÀïÃ»ÓĞ apache-maven£¬ÏµÍ³ PATH ÀïÒ²Ã»ÓĞ mvn ÃüÁî¡£
+        echo        ½â¾ö°ì·¨: ÔËĞĞ tools\setup-maven.bat ×Ô¶¯ÏÂÔØ£¬»ò×ÔĞĞ°²×° Maven¡£
         pause
         exit /b 1
     )
     set "MVN=mvn"
-    echo        ä½¿ç”¨ç³»ç»Ÿ Maven âœ“
+    echo        Ê¹ÓÃÏµÍ³ Maven [OK]
 )
 
-rem ---------- 2. æ£€æŸ¥ MySQL ----------
-echo  [2/6] æ£€æŸ¥ MySQL æœåŠ¡(3306)...
+rem ---------- 2. ¼ì²é MySQL ----------
+echo  [2/6] ¼ì²é MySQL ·şÎñ(3306)...
 powershell -NoProfile -Command "$c=New-Object Net.Sockets.TcpClient;try{$c.Connect('127.0.0.1',3306);exit 0}catch{exit 1}finally{$c.Close()}" >nul 2>&1
 if errorlevel 1 (
-    echo        [é”™è¯¯] MySQL æœªå¯åŠ¨! è¯·å…ˆå¯åŠ¨ MySQL æœåŠ¡å†è¿è¡Œæœ¬è„šæœ¬ã€‚
-    echo        æç¤º: åœ¨"æœåŠ¡"é‡Œå¯åŠ¨ MySQL80, æˆ–ç®¡ç†å‘˜è¿è¡Œ net start MySQL80
+    echo        [´íÎó] MySQL Î´Æô¶¯! ÇëÏÈÆô¶¯ MySQL ·şÎñÔÙÔËĞĞ±¾½Å±¾¡£
+    echo        ÌáÊ¾: ÔÚ"·şÎñ"ÀïÆô¶¯ MySQL80, »ò¹ÜÀíÔ±ÔËĞĞ net start MySQL80
     pause
     exit /b 1
 )
-echo        MySQL æ­£å¸¸ âœ“
+echo        MySQL Õı³£ [OK]
 
-rem ---------- 3. åˆå§‹åŒ–æ•°æ®åº“(å·²å­˜åœ¨åˆ™è·³è¿‡) ----------
-echo  [3/6] æ£€æŸ¥æ•°æ®åº“ animation_town...
+rem ---------- 3. ³õÊ¼»¯Êı¾İ¿â(ÒÑ´æÔÚÔòÌø¹ı) ----------
+echo  [3/6] ¼ì²éÊı¾İ¿â animation_town...
 if not exist "%MYSQL_EXE%" (
-    echo        [è­¦å‘Š] æœªæ‰¾åˆ° mysql.exe, è·³è¿‡æ•°æ®åº“æ£€æŸ¥(è‹¥åº“å·²å­˜åœ¨ä¸å½±å“å¯åŠ¨)
+    echo        [¾¯¸æ] Î´ÕÒµ½ mysql.exe, Ìø¹ıÊı¾İ¿â¼ì²é(Èô¿âÒÑ´æÔÚ²»Ó°ÏìÆô¶¯)
 ) else (
     "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% -e "USE animation_town;" >nul 2>&1
     if errorlevel 1 (
-        echo        é¦–æ¬¡è¿è¡Œ, æ­£åœ¨åˆå§‹åŒ–æ•°æ®åº“...
+        echo        Ê×´ÎÔËĞĞ, ÕıÔÚ³õÊ¼»¯Êı¾İ¿â...
         "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town.sql" 2>nul
         "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town_data.sql" 2>nul
         if errorlevel 1 (
-            echo        [é”™è¯¯] æ•°æ®åº“åˆå§‹åŒ–å¤±è´¥, è¯·æ£€æŸ¥ %BACKEND%\src\main\resources\application-dev.properties é‡Œçš„è´¦å·å¯†ç 
+            echo        [´íÎó] Êı¾İ¿â³õÊ¼»¯Ê§°Ü, Çë¼ì²é application-dev.properties ÀïµÄÕËºÅÃÜÂë
             pause
             exit /b 1
         )
-        echo        æ•°æ®åº“åˆå§‹åŒ–å®Œæˆ âœ“
+        echo        Êı¾İ¿â³õÊ¼»¯Íê³É [OK]
     ) else (
-        echo        æ•°æ®åº“å·²å°±ç»ª âœ“
+        echo        Êı¾İ¿âÒÑ¾ÍĞ÷ [OK]
     )
 )
 
-rem ---------- 4. å¯åŠ¨åç«¯ ----------
-echo  [4/6] å¯åŠ¨åç«¯ Spring Boot (8081)...
+rem ---------- 4. Æô¶¯ºó¶Ë ----------
+echo  [4/6] Æô¶¯ºó¶Ë Spring Boot (8081)...
 powershell -NoProfile -Command "$c=New-Object Net.Sockets.TcpClient;try{$c.Connect('127.0.0.1',8081);exit 0}catch{exit 1}finally{$c.Close()}" >nul 2>&1
 if not errorlevel 1 (
-    echo        åç«¯å·²åœ¨è¿è¡Œ, è·³è¿‡ âœ“
+    echo        ºó¶ËÒÑÔÚÔËĞĞ, Ìø¹ı [OK]
 ) else (
     call :free_port 8081
-    start "springBootTest-åç«¯" cmd /k "cd /d "%BACKEND%" && set "SERVER__PORT=8081" && set "SERVER__HOST=" && "%MVN%" spring-boot:run"
-    echo        åç«¯å¯åŠ¨ä¸­(é¦–æ¬¡ç¼–è¯‘çº¦éœ€ 30-60 ç§’)...
+    rem ×¢Òâ: Â·¾¶¾ù²»º¬¿Õ¸ñ, Íâ²ã cmd /k ÄÚ²»Ç¶Ì×ÒıºÅ(Ç¶Ì×ÒıºÅ»á±»½Ø¶Ï)
+    start "springBootTest-ºó¶Ë" %ROOT%springBootTest\start-backend.bat
+    echo        ºó¶ËÆô¶¯ÖĞ(Ê×´Î±àÒëÔ¼Ğè 30-60 Ãë)...
     set /a tries=0
     :wait_backend
     ping -n 4 127.0.0.1 >nul
@@ -118,16 +112,16 @@ if not errorlevel 1 (
     if errorlevel 1 (
         set /a tries+=1
         if !tries! lss 30 goto wait_backend
-        echo        [è­¦å‘Š] ç­‰å¾…åç«¯è¶…æ—¶, è¯·æŸ¥çœ‹ springBootTest-åç«¯ çª—å£çš„æŠ¥é”™ä¿¡æ¯
+        echo        [¾¯¸æ] µÈ´ıºó¶Ë³¬Ê±, Çë²é¿´ springBootTest-ºó¶Ë ´°¿ÚµÄ±¨´íĞÅÏ¢
     ) else (
-        echo        åç«¯å¯åŠ¨æˆåŠŸ âœ“
+        echo        ºó¶ËÆô¶¯³É¹¦ [OK]
     )
 )
 
-rem ---------- 5. å¯åŠ¨å‰ç«¯ ----------
-echo  [5/6] å¯åŠ¨å‰ç«¯ Vite (5173)...
+rem ---------- 5. Æô¶¯Ç°¶Ë ----------
+echo  [5/6] Æô¶¯Ç°¶Ë Vite (5173)...
 
-rem -- æ¢æµ‹ npm: ä¼˜å…ˆç³»ç»Ÿ PATHï¼Œå…¶æ¬¡å¸¸è§å®‰è£…ä½ç½® --
+rem -- Ì½²â npm: ÓÅÏÈÏµÍ³ PATH£¬Æä´Î³£¼û°²×°Î»ÖÃ --
 set "NPM="
 where npm >nul 2>&1 && set "NPM=npm"
 if not defined NPM if exist "C:\Program Files\nodejs\npm.cmd" set "NPM=C:\Program Files\nodejs\npm.cmd"
@@ -135,33 +129,34 @@ if not defined NPM for /d %%d in ("%USERPROFILE%\.workbuddy\binaries\node\versio
     if not defined NPM if exist "%%~fd\npm.cmd" set "NPM=%%~fd\npm.cmd"
 )
 if not defined NPM (
-    echo        [é”™è¯¯] æœªæ‰¾åˆ° npm! è¯·å®‰è£… Node.js (https://nodejs.org) åé‡è¯•ã€‚
+    echo        [´íÎó] Î´ÕÒµ½ npm! Çë°²×° Node.js (https://nodejs.org) ºóÖØÊÔ¡£
     pause
     exit /b 1
 )
 
-rem -- ä¾èµ–ç¼ºå¤±æ—¶è‡ªåŠ¨å®‰è£… --
+rem -- ÒÀÀµÈ±Ê§Ê±×Ô¶¯°²×° --
 if not exist "%FRONTEND%\node_modules" (
-    echo        é¦–æ¬¡è¿è¡Œ, æ­£åœ¨å®‰è£…å‰ç«¯ä¾èµ–(çº¦ 1 åˆ†é’Ÿ)...
+    echo        Ê×´ÎÔËĞĞ, ÕıÔÚ°²×°Ç°¶ËÒÀÀµ(Ô¼ 1 ·ÖÖÓ)...
     cd /d "%FRONTEND%"
     call !NPM! install --registry=https://registry.npmmirror.com --no-audit --no-fund
     if errorlevel 1 (
-        echo        [é”™è¯¯] å‰ç«¯ä¾èµ–å®‰è£…å¤±è´¥, è¯·æ£€æŸ¥ç½‘ç»œã€‚
+        echo        [´íÎó] Ç°¶ËÒÀÀµ°²×°Ê§°Ü, Çë¼ì²éÍøÂç¡£
         cd /d "%ROOT%"
         pause
         exit /b 1
     )
     cd /d "%ROOT%"
-    echo        å‰ç«¯ä¾èµ–å®‰è£…å®Œæˆ âœ“
+    echo        Ç°¶ËÒÀÀµ°²×°Íê³É [OK]
 )
 
 powershell -NoProfile -Command "$c=New-Object Net.Sockets.TcpClient;try{$c.Connect('127.0.0.1',5173);exit 0}catch{exit 1}finally{$c.Close()}" >nul 2>&1
 if not errorlevel 1 (
-    echo        å‰ç«¯å·²åœ¨è¿è¡Œ, è·³è¿‡ âœ“
+    echo        Ç°¶ËÒÑÔÚÔËĞĞ, Ìø¹ı [OK]
 ) else (
     call :free_port 5173
-    start "animation-town-å‰ç«¯" cmd /k "cd /d "%FRONTEND%" && set "PATH=%PATH%" && !NPM! run dev"
-    echo        å‰ç«¯å¯åŠ¨ä¸­...
+    rem Ç°¶ËÍ¬Àí: Â·¾¶²»º¬¿Õ¸ñ, Íâ²ã cmd /k ÄÚ²»Ç¶Ì×ÒıºÅ
+    start "animation-town-Ç°¶Ë" %ROOT%start-frontend.bat
+    echo        Ç°¶ËÆô¶¯ÖĞ...
     set /a tries=0
     :wait_frontend
     ping -n 3 127.0.0.1 >nul
@@ -169,29 +164,29 @@ if not errorlevel 1 (
     if errorlevel 1 (
         set /a tries+=1
         if !tries! lss 15 goto wait_frontend
-        echo        [è­¦å‘Š] ç­‰å¾…å‰ç«¯è¶…æ—¶, è¯·æŸ¥çœ‹ animation-town-å‰ç«¯ çª—å£
+        echo        [¾¯¸æ] µÈ´ıÇ°¶Ë³¬Ê±, Çë²é¿´ animation-town-Ç°¶Ë ´°¿Ú
     ) else (
-        echo        å‰ç«¯å¯åŠ¨æˆåŠŸ âœ“
+        echo        Ç°¶ËÆô¶¯³É¹¦ [OK]
     )
 )
 
 echo.
 echo  ==========================================
-echo    å…¨éƒ¨å°±ç»ª! æµè§ˆå™¨å³å°†è‡ªåŠ¨æ‰“å¼€
-echo    æ‰‹åŠ¨è®¿é—®: http://localhost:5173
+echo    È«²¿¾ÍĞ÷! ä¯ÀÀÆ÷¼´½«×Ô¶¯´ò¿ª
+echo    ÊÖ¶¯·ÃÎÊ: http://localhost:5173
 echo  ==========================================
 echo.
 start http://localhost:5173
 pause
 goto :eof
 
-rem ---------- é‡Šæ”¾æŒ‡å®šç«¯å£å ç”¨çš„è¿›ç¨‹ï¼ˆé¿å…"ç«¯å£è¢«å ç”¨å¯¼è‡´å‰ç«¯/åç«¯å¯åŠ¨å¤±è´¥"ï¼‰ ----------
+rem ---------- ÊÍ·ÅÖ¸¶¨¶Ë¿ÚÕ¼ÓÃµÄ½ø³Ì ----------
 :free_port
   set "P=%1"
-  echo        æ£€æŸ¥ç«¯å£ %P% æ˜¯å¦è¢«å ç”¨...
+  echo        ¼ì²é¶Ë¿Ú %P% ÊÇ·ñ±»Õ¼ÓÃ...
   for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr /R ":%P% " ^| findstr /I "LISTENING" ') do (
     if not "%%a"=="0" (
-      echo        é‡Šæ”¾å ç”¨ç«¯å£ %P% çš„è¿›ç¨‹ PID=%%a
+      echo        ÊÍ·ÅÕ¼ÓÃ¶Ë¿Ú %P% µÄ½ø³Ì PID=%%a
       taskkill /PID %%a /F >nul 2>&1
     )
   )
