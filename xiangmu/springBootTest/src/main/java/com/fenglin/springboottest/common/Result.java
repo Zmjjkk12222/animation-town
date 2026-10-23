@@ -28,8 +28,16 @@ public class Result<T> {
     }
 
     public static <T> Result<T> fail(String message) {
+        return fail(400, message);
+    }
+
+    /**
+     * 指定业务失败码，例如 401 表示未登录 / 登录态失效，
+     * 前端可据此跳转到登录页。
+     */
+    public static <T> Result<T> fail(int code, String message) {
         Result<T> r = new Result<>();
-        r.setCode(400);
+        r.setCode(code);
         r.setMessage(message);
         return r;
     }

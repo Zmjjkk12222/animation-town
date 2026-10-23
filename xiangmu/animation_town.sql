@@ -11,11 +11,32 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 16/10/2026 15:05:31
+ Date: 23/10/2026 15:07:08
 */
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------
+-- Table structure for town_admin
+-- ----------------------------
+DROP TABLE IF EXISTS `town_admin`;
+CREATE TABLE `town_admin`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键，自增',
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '管理员登录账号（唯一）',
+  `password` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'BCrypt 加密后的密码',
+  `nickname` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '显示名称',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=正常 / 1=已删',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_admin_username`(`username` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '后台管理员表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of town_admin
+-- ----------------------------
+INSERT INTO `town_admin` VALUES (1, 'admin', '$2a$10$dBTVeuZMILcpgDF1BvtaW./voPDOkE2CDObLDL8NgOB73mR2cysSy', '小镇管理员', '2026-10-23 14:29:51', '2026-10-23 14:29:51', 0);
 
 -- ----------------------------
 -- Table structure for town_animation
@@ -33,7 +54,7 @@ CREATE TABLE `town_animation`  (
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删 / 1=已删',
   `play_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '播放地址',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 31 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇动画表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 34 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇动画表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_animation
@@ -108,14 +129,15 @@ CREATE TABLE `town_user`  (
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删 / 1=已删',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_nickname`(`nickname` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_user
 -- ----------------------------
-INSERT INTO `town_user` VALUES (1, 'testkid', 'kid', '🐱', '', '$2a$10$IduSnMaUd47w/uMF.5uujekO4i3P3ai6Cun.9oV8d07JWx2Ts1ccS', '2026-10-12 08:54:48', '2026-10-12 08:54:48', 0);
-INSERT INTO `town_user` VALUES (2, '朵朵', 'kid', '🦄', '', '$2a$10$d2X6BqgW/1IqjmwGziY/.OP9t9jDe1IibYTzIOZswnJcGDWBwygLi', '2026-10-12 09:17:30', '2026-10-12 09:17:30', 0);
-INSERT INTO `town_user` VALUES (3, '宁宁', 'kid', '🦄', '', '$2a$10$y2s4RuK08Hwvd59e5Xr6q.NwmISw6GuaQf7XfRa77YNg.O8OUl2py', '2026-10-15 14:03:22', '2026-10-15 14:03:22', 0);
-INSERT INTO `town_user` VALUES (4, '王星', 'kid', '🦄', '', '$2a$10$EGf86NVRM8OUHOPasvhSwee3r3G9YPI0TD3fnl88V0Gg47W3t4xV.', '2026-10-16 14:08:41', '2026-10-16 14:08:41', 0);
+INSERT INTO `town_user` VALUES (1, 'testkid', 'kid', '🐱', '', '$2a$10$IduSnMaUd47w/uMF.5uujekO4i3P3ai6Cun.9oV8d07JWx2Ts1ccS', '2026-10-12 08:54:48', '2026-10-23 14:40:35', 1);
+INSERT INTO `town_user` VALUES (2, '朵朵', 'kid', '🦄', '', '$2a$10$d2X6BqgW/1IqjmwGziY/.OP9t9jDe1IibYTzIOZswnJcGDWBwygLi', '2026-10-12 09:17:30', '2026-10-23 15:04:49', 0);
+INSERT INTO `town_user` VALUES (3, '宁宁', 'kid', '🦄', '', '$2a$10$y2s4RuK08Hwvd59e5Xr6q.NwmISw6GuaQf7XfRa77YNg.O8OUl2py', '2026-10-15 14:03:22', '2026-10-23 14:40:28', 1);
+INSERT INTO `town_user` VALUES (4, '王星', 'kid', '🦄', '', '$2a$10$EGf86NVRM8OUHOPasvhSwee3r3G9YPI0TD3fnl88V0Gg47W3t4xV.', '2026-10-16 14:08:41', '2026-10-23 14:34:41', 0);
+INSERT INTO `town_user` VALUES (5, '罗磊', 'kid', '🦄', '', '$2a$10$9eoNMxuNBq07LseDXcN32OnLmh7/1yDvsYgoGqpwlzz7aDzzTz/ne', '2026-10-23 15:03:27', '2026-10-23 15:03:27', 0);
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -7,7 +7,7 @@ import { getRecommend, getFavorites, addFavorite, removeFavorite } from '../api/
 const props = defineProps({
   user: { type: Object, default: () => ({}) }
 })
-const emit = defineEmits(['logout'])
+const emit = defineEmits(['logout', 'go-admin'])
 const { toast } = useToast()
 
 const roleLabel = computed(() => (props.user.role === 'parent' ? '家长' : '小朋友'))
@@ -203,6 +203,12 @@ onUnmounted(stopBanner)
         >
           <span class="snav-ico">{{ t.icon }}</span>
           <span class="snav-txt">{{ t.label }}</span>
+        </button>
+
+        <!-- 后台管理系统入口 -->
+        <button class="snav admin-entry" type="button" @click="emit('go-admin'); sideOpen = false">
+          <span class="snav-ico">🛡️</span>
+          <span class="snav-txt">后台管理系统</span>
         </button>
 
         <div class="side-sep">动漫频道</div>
@@ -504,6 +510,14 @@ onUnmounted(stopBanner)
 .snav-ico { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
 .snav-txt { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .snav-cnt { font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+
+/* 后台管理系统入口：与普通导航稍作区分（蓝紫点缀） */
+.admin-entry {
+  margin-top: 8px;
+  border: 1px dashed rgba(109, 184, 255, .55);
+  color: #5b7fd6;
+}
+.admin-entry:hover { background: rgba(109, 184, 255, .16); color: #3f66c0; }
 
 .side-user {
   display: flex; align-items: center; gap: 8px;
