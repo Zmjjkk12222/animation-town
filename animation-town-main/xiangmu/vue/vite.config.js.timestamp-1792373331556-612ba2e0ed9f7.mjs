@@ -1,0 +1,22 @@
+// vite.config.js
+import { defineConfig } from "file:///C:/Users/Administrator/Desktop/animation-town-main/animation-town-main/xiangmu/vue/node_modules/vite/dist/node/index.js";
+import vue from "file:///C:/Users/Administrator/Desktop/animation-town-main/animation-town-main/xiangmu/vue/node_modules/@vitejs/plugin-vue/dist/index.mjs";
+var vite_config_default = defineConfig({
+  plugins: [vue()],
+  server: {
+    host: true,
+    port: 5173,
+    // 开发环境把 /api 代理到 Spring Boot 后端（默认 8081），
+    // 这样前端无需处理跨域，请求路径与后端 @RequestMapping("/api/user") 对齐。
+    proxy: {
+      "/api": {
+        target: "http://localhost:8081",
+        changeOrigin: true
+      }
+    }
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcuanMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCJDOlxcXFxVc2Vyc1xcXFxBZG1pbmlzdHJhdG9yXFxcXERlc2t0b3BcXFxcYW5pbWF0aW9uLXRvd24tbWFpblxcXFxhbmltYXRpb24tdG93bi1tYWluXFxcXHhpYW5nbXVcXFxcdnVlXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ZpbGVuYW1lID0gXCJDOlxcXFxVc2Vyc1xcXFxBZG1pbmlzdHJhdG9yXFxcXERlc2t0b3BcXFxcYW5pbWF0aW9uLXRvd24tbWFpblxcXFxhbmltYXRpb24tdG93bi1tYWluXFxcXHhpYW5nbXVcXFxcdnVlXFxcXHZpdGUuY29uZmlnLmpzXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ltcG9ydF9tZXRhX3VybCA9IFwiZmlsZTovLy9DOi9Vc2Vycy9BZG1pbmlzdHJhdG9yL0Rlc2t0b3AvYW5pbWF0aW9uLXRvd24tbWFpbi9hbmltYXRpb24tdG93bi1tYWluL3hpYW5nbXUvdnVlL3ZpdGUuY29uZmlnLmpzXCI7aW1wb3J0IHsgZGVmaW5lQ29uZmlnIH0gZnJvbSAndml0ZSdcclxuaW1wb3J0IHZ1ZSBmcm9tICdAdml0ZWpzL3BsdWdpbi12dWUnXHJcblxyXG5leHBvcnQgZGVmYXVsdCBkZWZpbmVDb25maWcoe1xyXG4gIHBsdWdpbnM6IFt2dWUoKV0sXHJcbiAgc2VydmVyOiB7XHJcbiAgICBob3N0OiB0cnVlLFxyXG4gICAgcG9ydDogNTE3MyxcclxuICAgIC8vIFx1NUYwMFx1NTNEMVx1NzNBRlx1NTg4M1x1NjI4QSAvYXBpIFx1NEVFM1x1NzQwNlx1NTIzMCBTcHJpbmcgQm9vdCBcdTU0MEVcdTdBRUZcdUZGMDhcdTlFRDhcdThCQTQgODA4MVx1RkYwOVx1RkYwQ1xyXG4gICAgLy8gXHU4RkQ5XHU2ODM3XHU1MjREXHU3QUVGXHU2NUUwXHU5NzAwXHU1OTA0XHU3NDA2XHU4REU4XHU1N0RGXHVGRjBDXHU4QkY3XHU2QzQyXHU4REVGXHU1Rjg0XHU0RTBFXHU1NDBFXHU3QUVGIEBSZXF1ZXN0TWFwcGluZyhcIi9hcGkvdXNlclwiKSBcdTVCRjlcdTlGNTBcdTMwMDJcclxuICAgIHByb3h5OiB7XHJcbiAgICAgICcvYXBpJzoge1xyXG4gICAgICAgIHRhcmdldDogJ2h0dHA6Ly9sb2NhbGhvc3Q6ODA4MScsXHJcbiAgICAgICAgY2hhbmdlT3JpZ2luOiB0cnVlXHJcbiAgICAgIH1cclxuICAgIH1cclxuICB9XHJcbn0pXHJcbiJdLAogICJtYXBwaW5ncyI6ICI7QUFBd2IsU0FBUyxvQkFBb0I7QUFDcmQsT0FBTyxTQUFTO0FBRWhCLElBQU8sc0JBQVEsYUFBYTtBQUFBLEVBQzFCLFNBQVMsQ0FBQyxJQUFJLENBQUM7QUFBQSxFQUNmLFFBQVE7QUFBQSxJQUNOLE1BQU07QUFBQSxJQUNOLE1BQU07QUFBQTtBQUFBO0FBQUEsSUFHTixPQUFPO0FBQUEsTUFDTCxRQUFRO0FBQUEsUUFDTixRQUFRO0FBQUEsUUFDUixjQUFjO0FBQUEsTUFDaEI7QUFBQSxJQUNGO0FBQUEsRUFDRjtBQUNGLENBQUM7IiwKICAibmFtZXMiOiBbXQp9Cg==
