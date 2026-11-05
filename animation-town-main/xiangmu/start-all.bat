@@ -84,6 +84,8 @@ if not exist "%MYSQL_EXE%" (
         echo        首次运行, 正在初始化数据库...
         "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town.sql" 2>nul
         "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town_data.sql" 2>nul
+        "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\town_admin.sql" 2>nul
+        "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\town_friend.sql" 2>nul
         if errorlevel 1 (
             echo        [错误] 数据库初始化失败, 请检查 application-dev.properties 里的账号密码
             pause

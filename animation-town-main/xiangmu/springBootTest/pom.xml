@@ -50,6 +50,12 @@
 			<artifactId>spring-boot-starter-thymeleaf</artifactId>
 		</dependency>
 
+		<!-- WebSocket：亲子游戏「邀请好友一起闯关」联机实时同步 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+
 		<!-- MyBatis-Plus（Spring Boot 3 专用 starter） -->
 		<dependency>
 			<groupId>com.baomidou</groupId>
@@ -68,6 +74,12 @@
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-crypto</artifactId>
+		</dependency>
+
+		<!-- WebSocket：亲子游戏联机闯关 -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
 		</dependency>
 
 		<!-- Lombok 简化实体代码 -->

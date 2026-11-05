@@ -14,6 +14,12 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8081',
         changeOrigin: true
+      },
+      // 亲子游戏联机 WebSocket：/ws -> ws://localhost:8081
+      '/ws': {
+        target: 'ws://localhost:8081',
+        ws: true,
+        changeOrigin: true
       }
     }
   }

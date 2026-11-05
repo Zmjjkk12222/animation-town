@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Toast from './Toast.vue'
+import FireIceGame from './FireIceGame.vue'
 import { useToast } from '../composables/feedback.js'
 import { getRecommend, getFavorites, addFavorite, removeFavorite } from '../api/animation.js'
 
@@ -20,7 +21,8 @@ const sideOpen = ref(false)   // 移动端侧边栏开关
 const navMain = [
   { key: 'home', label: '首页', icon: '🏠' },
   { key: 'all', label: '全部动画', icon: '🎬' },
-  { key: 'fav', label: '我的收藏', icon: '⭐' }
+  { key: 'fav', label: '我的收藏', icon: '⭐' },
+  { key: 'game', label: '亲子游戏', icon: '🎮' }
 ]
 
 // ============================================================
@@ -91,21 +93,25 @@ function goCat(c) {
 }
 
 // ============================================================
-// 轮播 Banner（热度 Top5，自动轮播 6s，右侧缩略图轨可点击切换）
+// 轮播 Banner（热度 Top5 · 6 秒连播，右侧缩略图轨可点击切换）
+// 连播节奏由底部进度条的 CSS 动画驱动：动画跑完即切下一条，
+// 悬停 / 手动暂停时动画同步暂停，进度与切换时刻永远不错位。
 // ============================================================
+const BANNER_MS = 6000
 const banners = computed(() => byHot.value.slice(0, 5))
 const bannerIdx = ref(0)
 const banner = computed(() => banners.value[bannerIdx.value] || null)
-let bannerTimer = null
 
-function startBanner() {
-  stopBanner()
-  bannerTimer = setInterval(() => {
-    if (banners.value.length) bannerIdx.value = (bannerIdx.value + 1) % banners.value.length
-  }, 6000)
+const hovering = ref(false)          // 鼠标是否停在 Banner 上
+const manualPaused = ref(false)      // 用户手动点了"暂停连播"
+const bannerPaused = computed(() => hovering.value || manualPaused.value)
+
+function nextBanner() {              // 进度条动画结束后自动切下一条
+  if (!banners.value.length) return
+  bannerIdx.value = (bannerIdx.value + 1) % banners.value.length
 }
-function stopBanner() { if (bannerTimer) { clearInterval(bannerTimer); bannerTimer = null } }
-function pickBanner(i) { bannerIdx.value = i; startBanner() }   // 手动切换后重新计时
+function pickBanner(i) { bannerIdx.value = i }   // 手动切换：进度条重挂 key，动画从头开始
+function toggleBanner() { manualPaused.value = !manualPaused.value }
 
 // 飙升榜（右上角紧凑榜单）
 const rankList = computed(() => byHot.value.slice(0, 5))
@@ -182,8 +188,7 @@ function openExternal() {
   if (playerUrl.value) window.open(playerUrl.value, '_blank', 'noopener')
 }
 
-onMounted(() => { load(); startBanner() })
-onUnmounted(stopBanner)
+onMounted(load)
 </script>
 
 <template>
@@ -279,32 +284,49 @@ onUnmounted(stopBanner)
         </section>
 
         <template v-else>
-          <!-- ============ 大幅轮播 Banner（仿腾讯视频首页头图） ============ -->
-          <section v-if="banner" class="banner" @mouseenter="stopBanner" @mouseleave="startBanner">
-            <div class="bn-bg" :style="{ '--g': catGrad(banner.category) }">
-              <span class="bn-emoji">{{ banner.cover }}</span>
-            </div>
-
-            <div class="bn-info">
-              <span class="bn-badge">✨ 热度 No.{{ bannerIdx + 1 }} · {{ banner.category }}</span>
-              <h1 class="bn-title">{{ banner.title }}</h1>
-              <p class="bn-desc">{{ banner.description }}</p>
-              <div class="bn-meta">
-                <span>{{ catEmoji(banner.category) }} {{ banner.category }}</span>
-                <i>·</i><span>🔥 热度 {{ banner.hot }}</span>
-                <i>·</i><span>{{ favIds.has(banner.id) ? '已收藏' : '未收藏' }}</span>
-              </div>
-              <div class="bn-btns">
-                <button class="bn-play" type="button" @click="play(banner)">▶ 立即播放</button>
-                <button
-                  class="bn-fav" :class="{ on: favIds.has(banner.id) }" type="button"
-                  @click="toggleFav(banner)"
-                >{{ favIds.has(banner.id) ? '❤️ 已收藏' : '🤍 收藏' }}</button>
+          <!-- ============ 大幅连播 Banner（仿腾讯视频首页头图） ============ -->
+          <section
+            v-if="banner" class="banner"
+            @mouseenter="hovering = true" @mouseleave="hovering = false"
+          >
+            <!-- 背景层：每个 banner 一层，切换时交叉淡入，形成连播过渡 -->
+            <div class="bn-stage" aria-hidden="true">
+              <div
+                v-for="(b, i) in banners" :key="'bg' + b.id"
+                class="bn-bg" :class="{ on: i === bannerIdx }"
+                :style="{ '--g': catGrad(b.category) }"
+              >
+                <span class="bn-emoji">{{ b.cover }}</span>
               </div>
             </div>
 
-            <!-- 右侧缩略图轨 -->
+            <Transition name="bn-swap" mode="out-in">
+              <div class="bn-info" :key="'info' + banner.id">
+                <span class="bn-badge">✨ 热度 No.{{ bannerIdx + 1 }} · {{ banner.category }}</span>
+                <h1 class="bn-title">{{ banner.title }}</h1>
+                <p class="bn-desc">{{ banner.description }}</p>
+                <div class="bn-meta">
+                  <span>{{ catEmoji(banner.category) }} {{ banner.category }}</span>
+                  <i>·</i><span>🔥 热度 {{ banner.hot }}</span>
+                  <i>·</i><span>{{ favIds.has(banner.id) ? '已收藏' : '未收藏' }}</span>
+                </div>
+                <div class="bn-btns">
+                  <button class="bn-play" type="button" @click="play(banner)">▶ 立即播放</button>
+                  <button
+                    class="bn-fav" :class="{ on: favIds.has(banner.id) }" type="button"
+                    @click="toggleFav(banner)"
+                  >{{ favIds.has(banner.id) ? '❤️ 已收藏' : '🤍 收藏' }}</button>
+                </div>
+              </div>
+            </Transition>
+
+            <!-- 右侧缩略图轨 + 连播开关 -->
             <div class="bn-rail">
+              <button
+                class="rail-toggle" :class="{ paused: bannerPaused }" type="button"
+                :title="bannerPaused ? '继续连播' : '暂停连播'"
+                @click="toggleBanner"
+              >{{ manualPaused ? '▶ 继续连播' : 'Ⅱ 连播中' }}</button>
               <button
                 v-for="(b, i) in banners" :key="'bn' + b.id"
                 class="rail-item" :class="{ active: i === bannerIdx }"
@@ -314,6 +336,15 @@ onUnmounted(stopBanner)
                 <span class="rail-emoji">{{ b.cover }}</span>
                 <span class="rail-name">{{ b.title }}</span>
               </button>
+            </div>
+
+            <!-- 连播进度条：动画跑满 6s 自动切下一条；暂停时同步冻结 -->
+            <div class="bn-progress" aria-hidden="true">
+              <i
+                :key="'bar' + bannerIdx" :class="{ paused: bannerPaused }"
+                :style="{ animationDuration: BANNER_MS + 'ms' }"
+                @animationend="nextBanner"
+              ></i>
             </div>
           </section>
 
@@ -367,6 +398,27 @@ onUnmounted(stopBanner)
               </div>
             </div>
           </section>
+
+          <!-- ============ 亲子游戏入口卡片 ============ -->
+          <section class="sec">
+            <div class="play-card">
+              <div class="pc-figures">
+                <span class="pc-ice">❄</span>
+                <span class="pc-fire">🔥</span>
+              </div>
+              <div class="pc-text">
+                <h2 class="pc-title">🎮 亲子互动 · 冰娃与火娃</h2>
+                <p class="pc-desc">
+                  同屏双人闯关：一个人按 <b>W A D</b> 控冰娃，一个人按 <b>← → ↑</b> 控火娃，
+                  躲开岩浆和水池，一起走进各自的小门。
+                </p>
+                <div class="pc-tags">
+                  <span>👨‍👩‍👧 2 人同屏</span><span>🧩 3 个关卡</span><span>⌨️ 键盘 / 触屏</span>
+                </div>
+              </div>
+              <button class="pc-btn" type="button" @click="tab = 'game'">开始游戏 ▶</button>
+            </div>
+          </section>
         </template>
       </template>
 
@@ -411,6 +463,11 @@ onUnmounted(stopBanner)
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- ============ 亲子游戏视图 ============ -->
+      <section v-else-if="tab === 'game' && !searching" class="sec">
+        <FireIceGame />
       </section>
 
       <footer class="foot">动画小镇 · 给小朋友的动画频道 🌟</footer>
@@ -589,10 +646,16 @@ onUnmounted(stopBanner)
   animation: fadeUp .5s ease both;
   isolation: isolate;
 }
+/* 背景舞台：多个 banner 各占一层，靠 opacity 交叉淡入实现连播过渡 */
+.bn-stage { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
 .bn-bg {
-  position: absolute; inset: 0; z-index: -1;
+  position: absolute; inset: 0;
   background: linear-gradient(115deg, #fff6fb 0%, #eaf6ff 100%);
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity .9s ease, transform 1.2s ease;
 }
+.bn-bg.on { opacity: 1; transform: scale(1); }
 .bn-bg::before {
   content: ""; position: absolute; right: -70px; top: -70px;
   width: 360px; height: 360px; border-radius: 50%;
@@ -618,8 +681,12 @@ onUnmounted(stopBanner)
   align-self: flex-end;
   padding: 34px 30px 34px 34px;
   max-width: 560px;
-  animation: fadeUp .6s ease both;
 }
+/* 连播切换时文案滑入：出场微退 + 淡出，进场从左滑入 */
+.bn-swap-enter-active { transition: opacity .5s ease, transform .55s cubic-bezier(.22, .8, .3, 1); }
+.bn-swap-leave-active { transition: opacity .2s ease, transform .2s ease; }
+.bn-swap-enter-from { opacity: 0; transform: translateX(-24px); }
+.bn-swap-leave-to { opacity: 0; transform: translateX(16px); }
 .bn-badge {
   display: inline-block; font-size: 12px; font-weight: bold; color: #fff;
   background: linear-gradient(120deg, #ff8fc4, #ff6fa5);
@@ -680,8 +747,68 @@ onUnmounted(stopBanner)
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
+/* 连播开关（缩略图轨顶部） */
+.rail-toggle {
+  width: 132px; padding: 5px 0; margin-bottom: 2px;
+  border: 1px dashed rgba(120, 140, 190, .45); border-radius: 999px;
+  background: rgba(255, 255, 255, .72); backdrop-filter: blur(4px);
+  font-family: var(--font); font-size: 11px; color: var(--ink-soft);
+  cursor: pointer; transition: .18s;
+}
+.rail-toggle:hover { background: #fff; color: var(--ink); border-color: rgba(255, 111, 165, .55); }
+.rail-toggle.paused { color: #ff6fa5; border-color: rgba(255, 111, 165, .7); border-style: solid; }
+
+/* 连播进度条：跑满一条即切下一个 */
+.bn-progress {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+  background: rgba(255, 255, 255, .45);
+  z-index: 4; pointer-events: none;
+}
+.bn-progress i {
+  display: block; height: 100%; width: 0;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, #ffb3d9, #ff6fa5);
+  box-shadow: 0 0 10px rgba(255, 111, 165, .7);
+  animation-name: bnBar; animation-timing-function: linear; animation-fill-mode: forwards;
+}
+.bn-progress i.paused { animation-play-state: paused; }
+@keyframes bnBar { from { width: 0; } to { width: 100%; } }
+
 /* ============ 内容区块 ============ */
 .sec { margin-top: 30px; }
+
+/* 亲子游戏入口卡片 */
+.play-card {
+  position: relative; display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  padding: 22px 26px; border-radius: 22px; overflow: hidden;
+  background: linear-gradient(115deg, #eaf4ff 0%, #fdf0fb 55%, #fff3e9 100%);
+  border: 1px solid var(--line);
+  box-shadow: 0 14px 34px rgba(120, 140, 190, .16);
+}
+.pc-figures { display: flex; align-items: center; gap: 6px; font-size: 44px; line-height: 1; }
+.pc-ice { filter: drop-shadow(0 8px 14px rgba(79, 180, 240, .45)); animation: pcBob 3.2s ease-in-out infinite; }
+.pc-fire { filter: drop-shadow(0 8px 14px rgba(255, 122, 69, .45)); animation: pcBob 3.2s ease-in-out .5s infinite; }
+@keyframes pcBob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
+
+.pc-text { flex: 1; min-width: 220px; }
+.pc-title { margin: 0 0 6px; font-size: 19px; color: var(--ink); }
+.pc-desc { margin: 0 0 10px; font-size: 13px; line-height: 1.7; color: #6b6490; }
+.pc-desc b { color: #ff5fa8; }
+.pc-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.pc-tags span {
+  font-size: 11.5px; color: #6b6490; background: rgba(255, 255, 255, .8);
+  border: 1px solid rgba(190, 200, 235, .55); border-radius: 999px; padding: 3px 10px;
+}
+.pc-btn {
+  border: none; cursor: pointer; font-family: var(--font); font-size: 14px; font-weight: bold;
+  color: #fff; padding: 11px 24px; border-radius: 999px; flex-shrink: 0;
+  background: linear-gradient(120deg, #6fb8ff, #ff8fc4);
+  box-shadow: 0 10px 24px rgba(140, 140, 220, .38);
+  transition: transform .16s, box-shadow .2s;
+}
+.pc-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(140, 140, 220, .48); }
+.pc-btn:active { transform: scale(.97); }
+
 .sec-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .sec-h {
   margin: 0 0 14px; font-size: 20px; color: var(--ink); letter-spacing: 1px;
@@ -822,8 +949,9 @@ onUnmounted(stopBanner)
 /* ============ 窄屏适配 ============ */
 @media (max-width: 900px) {
   .bn-emoji { font-size: 200px; right: 4%; }
-  .bn-rail { flex-direction: row; width: 100%; padding: 0 20px 20px; }
+  .bn-rail { flex-direction: row; width: 100%; padding: 0 20px 20px; align-items: center; }
   .rail-item { width: 96px; height: 56px; }
+  .rail-toggle { width: auto; padding: 5px 12px; margin-bottom: 0; flex-shrink: 0; }
   .banner { flex-wrap: wrap; min-height: 340px; }
   .bn-info { max-width: none; padding: 26px 24px 12px; }
   .bn-title { font-size: 30px; }
