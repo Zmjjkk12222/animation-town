@@ -20,6 +20,14 @@ const ROWS = 15
 const W = COLS * T
 const H = ROWS * T
 
+// 背景星点（静态分布，轻微闪烁）
+const STARS = Array.from({ length: 46 }, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H * 0.55,
+  r: Math.random() * 1.4 + 0.4,
+  p: Math.random() * Math.PI * 2
+}))
+
 const GRAVITY = 2200
 const MOVE = 205
 const JUMP = 640
@@ -81,6 +89,98 @@ const LEVELS = [
     ],
     doors: { ice: [23, 6], fire: [25, 6] },
     starts: { ice: [2, 12], fire: [3, 12] }
+  },
+  {
+    name: '毒沼双桥',
+    hint: '中间立着一道光门，先让一人踩下左侧踏板打开它，两人再一起过桥登顶。',
+    platforms: [[3, 11, 7, 11], [10, 11, 14, 11], [17, 9, 20, 9], [22, 7, 25, 7]],
+    pools: [
+      { t: 'L', x0: 16, x1: 16, y: 12 },
+      { t: 'W', x0: 19, x1: 19, y: 12 }
+    ],
+    gates: [[8, 1, 8, 12]],
+    plates: [[5, 10]],
+    gems: [
+      { t: 'o', x: 4, y: 10 }, { t: 'o', x: 11, y: 10 }, { t: 'o', x: 18, y: 8 }, { t: 'o', x: 23, y: 6 },
+      { t: '*', x: 6, y: 10 }, { t: '*', x: 12, y: 10 }, { t: '*', x: 19, y: 8 }, { t: '*', x: 24, y: 6 }
+    ],
+    doors: { ice: [22, 6], fire: [25, 6] },
+    starts: { ice: [2, 12], fire: [3, 12] }
+  },
+  {
+    name: '岩浆回廊',
+    hint: '地面是一片岩浆，火娃可以大步走过；冰娃要踩着悬浮的冰台一跳一跳过去。',
+    platforms: [[2, 11, 4, 11], [7, 10, 9, 10], [12, 9, 14, 9], [17, 8, 19, 8], [22, 7, 24, 7], [24, 5, 26, 5]],
+    pools: [
+      { t: 'L', x0: 5, x1: 11, y: 12 },
+      { t: 'L', x0: 15, x1: 21, y: 12 },
+      { t: 'L', x0: 25, x1: 26, y: 12 }
+    ],
+    gates: [],
+    plates: [],
+    gems: [
+      { t: 'o', x: 8, y: 9 }, { t: 'o', x: 13, y: 8 }, { t: 'o', x: 18, y: 7 }, { t: 'o', x: 23, y: 6 }, { t: 'o', x: 25, y: 4 },
+      { t: '*', x: 6, y: 12 }, { t: '*', x: 16, y: 12 }, { t: '*', x: 20, y: 12 }, { t: '*', x: 25, y: 6 }
+    ],
+    doors: { ice: [24, 4], fire: [26, 4] },
+    starts: { ice: [1, 12], fire: [2, 12] }
+  },
+  {
+    name: '毒液高塔',
+    hint: '高塔上散落着毒液，两人都不能碰。先踩踏板开门，再一层层往上爬。',
+    platforms: [[3, 11, 6, 11], [9, 11, 12, 11], [15, 9, 18, 9], [21, 7, 24, 7], [24, 4, 26, 4]],
+    pools: [
+      { t: 'G', x0: 7, x1: 8, y: 12 },
+      { t: 'G', x0: 13, x1: 14, y: 12 },
+      { t: 'W', x0: 19, x1: 19, y: 12 },
+      { t: 'L', x0: 22, x1: 22, y: 12 }
+    ],
+    gates: [[20, 5, 20, 12]],
+    plates: [[4, 10]],
+    gems: [
+      { t: 'o', x: 5, y: 10 }, { t: 'o', x: 10, y: 10 }, { t: 'o', x: 16, y: 8 }, { t: 'o', x: 22, y: 6 }, { t: 'o', x: 25, y: 3 },
+      { t: '*', x: 11, y: 10 }, { t: '*', x: 17, y: 8 }, { t: '*', x: 23, y: 6 }, { t: '*', x: 26, y: 3 }
+    ],
+    doors: { ice: [24, 3], fire: [26, 3] },
+    starts: { ice: [2, 12], fire: [3, 12] }
+  },
+  {
+    name: '镜像迷阵',
+    hint: '左边岩浆、右边水池，路线像镜子一样对称。各自走安全半边，再到中间会合。',
+    platforms: [[3, 11, 7, 11], [10, 9, 13, 9], [17, 11, 21, 11], [20, 7, 23, 7], [24, 5, 26, 5]],
+    pools: [
+      { t: 'L', x0: 8, x1: 9, y: 12 },
+      { t: 'W', x0: 18, x1: 19, y: 12 },
+      { t: 'G', x0: 13, x1: 14, y: 12 }
+    ],
+    gates: [[15, 6, 15, 12]],
+    plates: [[5, 10]],
+    gems: [
+      { t: 'o', x: 4, y: 10 }, { t: 'o', x: 11, y: 8 }, { t: 'o', x: 18, y: 10 }, { t: 'o', x: 21, y: 6 }, { t: 'o', x: 25, y: 4 },
+      { t: '*', x: 6, y: 10 }, { t: '*', x: 12, y: 8 }, { t: '*', x: 19, y: 10 }, { t: '*', x: 22, y: 6 }, { t: '*', x: 26, y: 4 }
+    ],
+    doors: { ice: [24, 4], fire: [26, 4] },
+    starts: { ice: [2, 12], fire: [3, 12] }
+  },
+  {
+    name: '终极协作',
+    hint: '毒液、岩浆、水池、光门全到齐了。两人密切配合，一起登顶！',
+    platforms: [[3, 11, 6, 11], [9, 10, 11, 10], [14, 9, 16, 9], [19, 8, 21, 8], [23, 6, 25, 6], [25, 4, 27, 4]],
+    pools: [
+      { t: 'L', x0: 7, x1: 8, y: 12 },
+      { t: 'G', x0: 12, x1: 13, y: 12 },
+      { t: 'W', x0: 17, x1: 18, y: 12 },
+      { t: 'L', x0: 22, x1: 22, y: 12 },
+      { t: 'G', x0: 24, x1: 24, y: 12 }
+    ],
+    gates: [[10, 4, 10, 12], [20, 5, 20, 12]],
+    plates: [[4, 10], [15, 8]],
+    gems: [
+      { t: 'o', x: 5, y: 10 }, { t: 'o', x: 10, y: 9 }, { t: 'o', x: 15, y: 8 }, { t: 'o', x: 24, y: 5 }, { t: 'o', x: 26, y: 3 },
+      { t: '*', x: 6, y: 10 }, { t: '*', x: 11, y: 9 }, { t: '*', x: 19, y: 7 }, { t: '*', x: 23, y: 5 }, { t: '*', x: 27, y: 3 }
+    ],
+    doors: { ice: [26, 3], fire: [27, 3] },
+    starts: { ice: [2, 12], fire: [3, 12] }
   }
 ]
 
@@ -109,6 +209,76 @@ let lastTs = 0
 let acc = 0
 let timeAcc = 0
 let dpr = 1
+
+// ============================================================
+// 粒子系统（宝石闪光 / 通关彩带 / 失败溅射）
+// ============================================================
+let particles = []
+function spawnParticles(x, y, n, opt = {}) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2
+    const sp = (opt.speed || 60) * (0.4 + Math.random() * 0.9)
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * sp + (opt.vx || 0),
+      vy: Math.sin(a) * sp - (opt.up || 30),
+      life: 0,
+      max: opt.life || (0.5 + Math.random() * 0.5),
+      size: opt.size || (2 + Math.random() * 3),
+      color: opt.color || '#fff',
+      grav: opt.grav != null ? opt.grav : 240,
+      shape: opt.shape || 'dot',
+      rot: Math.random() * Math.PI,
+      spin: (Math.random() - 0.5) * 8
+    })
+  }
+  if (particles.length > 600) particles.splice(0, particles.length - 600)
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i]
+    p.life += dt
+    if (p.life >= p.max) { particles.splice(i, 1); continue }
+    p.vy += p.grav * dt
+    p.x += p.vx * dt
+    p.y += p.vy * dt
+    p.rot += p.spin * dt
+  }
+}
+function drawStar(cx, cy, R, r, points, color) {
+  ctx.beginPath()
+  for (let i = 0; i < points * 2; i++) {
+    const rad = i % 2 ? r : R
+    const a = (Math.PI / points) * i - Math.PI / 2
+    const x = cx + Math.cos(a) * rad
+    const y = cy + Math.sin(a) * rad
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)
+  }
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.fill()
+}
+function drawParticles() {
+  for (const p of particles) {
+    const k = 1 - p.life / p.max
+    ctx.globalAlpha = Math.max(0, k)
+    ctx.fillStyle = p.color
+    if (p.shape === 'rect') {
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(p.rot)
+      ctx.fillRect(-p.size, -p.size * 0.6, p.size * 2, p.size * 1.2)
+      ctx.restore()
+    } else if (p.shape === 'star') {
+      drawStar(p.x, p.y, p.size * 1.6, p.size * 0.7, 4, p.color)
+    } else {
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.size * k + 0.4, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  ctx.globalAlpha = 1
+}
 
 const keys = new Set()
 
@@ -160,6 +330,7 @@ function makeChar(type, [col, row]) {
     coyote: 0,
     face: 1,
     atDoor: false,
+    atDoorLatch: false,   // 到达过自己的门即点亮，两人都点亮即通关
     bob: 0
   }
 }
@@ -251,20 +422,27 @@ function update(dt) {
     if (gx > owner.x - 6 && gx < owner.x + owner.w + 6 && gy > owner.y - 6 && gy < owner.y + owner.h + 6) {
       g.taken = true
       gemsGot.value++
+      const isIce = g.t === 'o'
+      spawnParticles(gx, gy, 14, {
+        color: isIce ? '#7cc7ff' : '#ff9a5c',
+        speed: 95, up: 25, life: 0.7, size: 2.6, shape: 'star'
+      })
     }
   }
 
-  // 门
+  // 门（到达即点亮，两人各自到过自己的门即可通关，不再要求同帧同格站位）
   const def = LEVELS[level.value]
   ice.atDoor = inTile(ice, def.doors.ice)
   fire.atDoor = inTile(fire, def.doors.fire)
+  ice.atDoorLatch = ice.atDoorLatch || ice.atDoor
+  fire.atDoorLatch = fire.atDoorLatch || fire.atDoor
 
   // 掉出画面保护
   for (const ch of [ice, fire]) {
     if (ch.y > H + 80) return die(ch, '掉落')
   }
 
-  if (ice.atDoor && fire.atDoor) win()
+  if (ice.atDoorLatch && fire.atDoorLatch) win()
 
   timeAcc += dt
   elapsed.value = timeAcc
@@ -273,7 +451,8 @@ function update(dt) {
 function inTile(ch, [c, r]) {
   const cx = ch.x + ch.w / 2
   const feet = ch.y + ch.h - 6
-  return cx > c * T && cx < (c + 1) * T && feet > r * T && feet < (r + 2) * T && ch.onGround
+  // 放宽判定：横向容忍半格偏差，纵向覆盖门前平台，落地即可
+  return cx > (c - 0.5) * T && cx < (c + 1.5) * T && feet > r * T && feet < (r + 2) * T && ch.onGround
 }
 
 function stepChar(ch, dt, input) {
@@ -301,6 +480,10 @@ function stepChar(ch, dt, input) {
 
 function die(ch, reason) {
   if (state.value !== 'playing') return
+  const cx = ch.x + ch.w / 2
+  const cy = ch.y + ch.h / 2
+  const col = ch.type === 'ice' ? '#5bb8ff' : '#ff8a5c'
+  spawnParticles(cx, cy, 28, { color: col, speed: 140, up: 40, life: 0.85, size: 3 })
   state.value = 'dead'
   deadReason.value = ch.type === 'ice'
     ? `冰娃碰到${reason}啦！`
@@ -309,6 +492,13 @@ function die(ch, reason) {
 
 function win() {
   if (state.value !== 'playing') return
+  const def = LEVELS[level.value]
+  ;[def.doors.ice, def.doors.fire].forEach(([c, r]) => {
+    const x = c * T + T / 2
+    const y = r * T
+    spawnParticles(x, y, 46, { color: '#ff6fa5', speed: 170, up: 130, life: 1.4, size: 3, shape: 'rect', grav: 340 })
+    spawnParticles(x, y, 30, { color: '#6db8ff', speed: 150, up: 110, life: 1.4, size: 3, shape: 'rect', grav: 340 })
+  })
   state.value = 'win'
   const done = new Set(cleared.value)
   done.add(level.value)
@@ -323,26 +513,74 @@ function win() {
 function draw(ts) {
   if (!ctx) return
   const t = ts / 1000
-
-  // 背景
-  const bg = ctx.createLinearGradient(0, 0, 0, H)
-  bg.addColorStop(0, '#eef6ff')
-  bg.addColorStop(0.55, '#f6f2ff')
-  bg.addColorStop(1, '#fff2f8')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, W, H)
-
-  // 远景装饰圆
-  ctx.globalAlpha = 0.5
-  ctx.fillStyle = '#dfe9ff'
-  ctx.beginPath(); ctx.arc(W * 0.18, H * 0.22, 70, 0, Math.PI * 2); ctx.fill()
-  ctx.beginPath(); ctx.arc(W * 0.72, H * 0.16, 52, 0, Math.PI * 2); ctx.fill()
-  ctx.globalAlpha = 1
-
+  drawBackground(t)
   drawTiles(t)
   drawGems(t)
   drawDoors(t)
   drawChars(t)
+  drawParticles()
+  drawVignette()
+}
+
+// 动态背景：天空渐变 + 星空 + 双层远山视差 + 漂移云朵
+function drawBackground(t) {
+  const bg = ctx.createLinearGradient(0, 0, 0, H)
+  bg.addColorStop(0, '#cfe9ff')
+  bg.addColorStop(0.5, '#e9e2ff')
+  bg.addColorStop(1, '#ffe9f6')
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, W, H)
+
+  // 星星（柔光轻闪）
+  for (const s of STARS) {
+    const tw = 0.5 + 0.5 * Math.sin(t * 1.6 + s.p)
+    ctx.globalAlpha = 0.3 + tw * 0.5
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill()
+  }
+  ctx.globalAlpha = 1
+
+  // 远山两层视差
+  drawHill(H * 0.72, '#cfe3ff', 0.15, 70)
+  drawHill(H * 0.83, '#bcd6ff', 0.26, 54)
+
+  // 云朵缓慢漂移
+  const off = (t * 11) % (W + 220)
+  const cloud = (cx, cy, s, a) => {
+    ctx.globalAlpha = a
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.ellipse(cx, cy, 26 * s, 14 * s, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx + 22 * s, cy + 4 * s, 20 * s, 11 * s, 0, 0, Math.PI * 2)
+    ctx.ellipse(cx - 22 * s, cy + 5 * s, 18 * s, 10 * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  cloud((off) - 110, H * 0.16, 1.1, 0.85)
+  cloud((off * 0.8 + W * 0.5) % (W + 220) - 110, H * 0.3, 0.85, 0.6)
+  ctx.globalAlpha = 1
+}
+
+function drawHill(baseY, color, amp, step) {
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.moveTo(0, H)
+  ctx.lineTo(0, baseY)
+  for (let x = 0; x <= W; x += step) {
+    const y = baseY - Math.abs(Math.sin(x * 0.012)) * 40 * amp - Math.sin(x * 0.03) * 8
+    ctx.lineTo(x, y)
+  }
+  ctx.lineTo(W, H)
+  ctx.closePath()
+  ctx.fill()
+}
+
+// 暗角，聚焦画面中心
+function drawVignette() {
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.88)
+  g.addColorStop(0, 'rgba(0,0,0,0)')
+  g.addColorStop(1, 'rgba(70,60,110,0.18)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, W, H)
 }
 
 function drawTiles(t) {
@@ -351,27 +589,32 @@ function drawTiles(t) {
       const ch = grid[r][c]
       const x = c * T, y = r * T
       if (ch === '#') {
-        // 整块填满 + 只在暴露的边缘画高光/阴影，避免相邻砖块出现拼缝
-        ctx.fillStyle = '#dfe9ff'
+        const top = tile(c, r - 1) !== '#'
+        // 砖体
+        const g = ctx.createLinearGradient(x, y, x, y + T)
+        g.addColorStop(0, top ? '#ffffff' : '#eaf1ff')
+        g.addColorStop(1, '#cdd9f6')
+        ctx.fillStyle = g
         ctx.fillRect(x, y, T, T)
-        if (tile(c, r - 1) !== '#') {
+        if (top) {
+          // 草边
+          ctx.fillStyle = '#9be08a'
+          ctx.fillRect(x, y, T, 6)
+          ctx.fillStyle = '#7fd06f'
+          for (let i = 0; i < T; i += 6) ctx.fillRect(x + i, y + 5, 3, 3)
           ctx.fillStyle = '#ffffff'
-          ctx.fillRect(x, y, T, 5)
-          ctx.fillStyle = '#edf3ff'
-          ctx.fillRect(x, y + 5, T, 3)
+          ctx.globalAlpha = 0.5
+          ctx.fillRect(x, y, T, 2)
+          ctx.globalAlpha = 1
         }
-        if (tile(c, r + 1) !== '#') {
-          ctx.fillStyle = '#c3d3f7'
-          ctx.fillRect(x, y + T - 4, T, 4)
-        }
-        if (tile(c - 1, r) !== '#') {
-          ctx.fillStyle = 'rgba(255,255,255,.55)'
-          ctx.fillRect(x, y, 3, T)
-        }
-        if (tile(c + 1, r) !== '#') {
-          ctx.fillStyle = 'rgba(163,183,229,.35)'
-          ctx.fillRect(x + T - 3, y, 3, T)
-        }
+        // 边缘阴影 / 高光
+        if (tile(c, r + 1) !== '#') { ctx.fillStyle = '#b9c8ee'; ctx.fillRect(x, y + T - 3, T, 3) }
+        if (tile(c - 1, r) !== '#') { ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(x, y, 2, T) }
+        if (tile(c + 1, r) !== '#') { ctx.fillStyle = 'rgba(150,170,220,.3)'; ctx.fillRect(x + T - 2, y, 2, T) }
+        // 砖缝
+        ctx.strokeStyle = 'rgba(150,170,220,.18)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(x + 0.5, y + 0.5, T - 1, T - 1)
       } else if (ch === 'L' || ch === 'W' || ch === 'G') {
         drawLiquid(x, y, ch, t)
       } else if (ch === 'D') {
@@ -384,35 +627,42 @@ function drawTiles(t) {
 }
 
 function drawLiquid(x, y, kind, t) {
-  const colors = {
-    L: ['#ffb27a', '#ff6f61'],
-    W: ['#8fd8ff', '#3fa9f5'],
-    G: ['#b6e86a', '#5fb82f']
+  const palette = {
+    L: { top: '#ffd29a', bot: '#ff6f61', glow: 'rgba(255,111,97,.5)' },
+    W: { top: '#bfeaff', bot: '#3fa9f5', glow: 'rgba(63,169,245,.5)' },
+    G: { top: '#c7f59a', bot: '#5fb82f', glow: 'rgba(95,184,47,.5)' }
   }[kind]
+  // 外发光
+  ctx.save()
+  ctx.shadowColor = palette.glow
+  ctx.shadowBlur = 12
   const g = ctx.createLinearGradient(x, y + 5, x, y + T)
-  g.addColorStop(0, colors[0])
-  g.addColorStop(1, colors[1])
+  g.addColorStop(0, palette.top)
+  g.addColorStop(1, palette.bot)
   ctx.fillStyle = g
   ctx.beginPath()
   ctx.moveTo(x, y + T)
-  ctx.lineTo(x, y + 6)
+  ctx.lineTo(x, y + 7)
   // 波浪表面（相位按全局坐标，相邻格子自然衔接）
   for (let i = 0; i <= T; i += 4) {
-    const wy = y + 6 + Math.sin(t * 2.2 + (x + i) * 0.1) * 1.8
+    const wy = y + 7 + Math.sin(t * 2.4 + (x + i) * 0.12) * 2.2
     ctx.lineTo(x + i, wy)
   }
   ctx.lineTo(x + T, y + T)
   ctx.closePath()
   ctx.fill()
+  ctx.restore()
 
-  // 表面反光
-  ctx.fillStyle = 'rgba(255,255,255,.55)'
-  ctx.fillRect(x, y + 6, T, 2)
-  ctx.globalAlpha = 0.5
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(x + 6, y + 14, 5, 2.5)
-  ctx.fillRect(x + 19, y + 20, 4, 2.5)
-  ctx.globalAlpha = 1
+  // 上升气泡
+  ctx.fillStyle = 'rgba(255,255,255,.5)'
+  for (let i = 0; i < 3; i++) {
+    const bx = x + 6 + ((i * 11 + t * 14) % (T - 10))
+    const by = y + T - 4 - ((t * 18 + i * 13) % (T - 8))
+    ctx.beginPath(); ctx.arc(bx, by, 1.5 + (i % 2), 0, Math.PI * 2); ctx.fill()
+  }
+  // 表面高光
+  ctx.fillStyle = 'rgba(255,255,255,.6)'
+  ctx.fillRect(x, y + 7, T, 2)
 }
 
 function drawGate(x, y) {
@@ -451,28 +701,30 @@ function drawPlate(x, y) {
 }
 
 function drawGems(t) {
-  for (const g of gemList) {
-    if (g.taken) continue
-    const cx = g.x * T + T / 2
-    const cy = g.y * T + T / 2 + Math.sin(t * 3 + g.x) * 2
-    const isIce = g.t === 'o'
-    const grad = ctx.createLinearGradient(cx, cy - 9, cx, cy + 9)
-    grad.addColorStop(0, isIce ? '#bfeaff' : '#ffd0a8')
-    grad.addColorStop(1, isIce ? '#5bb8ff' : '#ff8a5c')
-    ctx.fillStyle = grad
+  for (const gm of gemList) {
+    if (gm.taken) continue
+    const cx = gm.x * T + T / 2
+    const cy = gm.y * T + T / 2 + Math.sin(t * 3 + gm.x) * 2
+    const isIce = gm.t === 'o'
+    const c1 = isIce ? '#dff4ff' : '#ffe2c4'
+    const c2 = isIce ? '#3fa9f5' : '#ff7a45'
+    // 宝石本体（旋转 + 发光）
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.rotate(Math.sin(t * 1.5 + gm.x) * 0.25)
+    ctx.shadowColor = isIce ? 'rgba(63,169,245,.8)' : 'rgba(255,122,69,.8)'
+    ctx.shadowBlur = 14
+    const g = ctx.createLinearGradient(0, -10, 0, 10)
+    g.addColorStop(0, c1); g.addColorStop(1, c2)
+    ctx.fillStyle = g
     ctx.beginPath()
-    ctx.moveTo(cx, cy - 9)
-    ctx.lineTo(cx + 8, cy)
-    ctx.lineTo(cx, cy + 9)
-    ctx.lineTo(cx - 8, cy)
-    ctx.closePath()
+    ctx.moveTo(0, -10); ctx.lineTo(9, 0); ctx.lineTo(0, 10); ctx.lineTo(-9, 0); ctx.closePath()
     ctx.fill()
-    ctx.globalAlpha = 0.7
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.moveTo(cx - 1, cy - 6); ctx.lineTo(cx + 3, cy - 1); ctx.lineTo(cx - 1, cy + 3)
-    ctx.closePath()
-    ctx.fill()
+    ctx.restore()
+    // 十字闪光
+    const sp = (Math.sin(t * 4 + gm.x * 2) + 1) * 0.5
+    ctx.globalAlpha = 0.35 + sp * 0.5
+    drawStar(cx + 11, cy - 9, 3 + sp * 2, 1.2, 4, '#fff')
     ctx.globalAlpha = 1
   }
 }
@@ -485,12 +737,14 @@ function drawDoors(t) {
     const bottom = (r + 1) * T
     const h = T * 1.15
     const y = bottom - h
-    const on = ch && ch.atDoor
+    const on = ch && (ch.atDoor || ch.atDoorLatch)   // 站门口或已到达过都点亮
     const col = type === 'ice' ? ['#8fd8ff', '#3fa9f5'] : ['#ffb27a', '#ff6b3d']
 
     ctx.save()
-    ctx.shadowColor = on ? (type === 'ice' ? 'rgba(63,169,245,.75)' : 'rgba(255,107,61,.75)') : 'transparent'
-    ctx.shadowBlur = on ? 18 : 0
+    if (on) {
+      ctx.shadowColor = type === 'ice' ? 'rgba(63,169,245,.85)' : 'rgba(255,107,61,.85)'
+      ctx.shadowBlur = 22
+    }
     const g = ctx.createLinearGradient(x, y, x, bottom)
     g.addColorStop(0, col[0])
     g.addColorStop(1, col[1])
@@ -504,14 +758,24 @@ function drawDoors(t) {
     ctx.fill()
     ctx.restore()
 
-    // 门内小牌子
-    ctx.globalAlpha = 0.9
+    // 门楣小旗（飘动）
+    const fx = x + (T - 6) / 2
+    const fw = 6 + Math.sin(t * 4 + (type === 'ice' ? 0 : 1.5)) * 2
+    ctx.fillStyle = on ? '#ffffff' : 'rgba(255,255,255,.9)'
+    ctx.beginPath()
+    ctx.moveTo(fx, y - 2)
+    ctx.lineTo(fx + fw, y + 2)
+    ctx.lineTo(fx, y + 6)
+    ctx.closePath(); ctx.fill()
+
+    // 门内图标
+    ctx.globalAlpha = 0.95
     ctx.font = '13px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillStyle = '#ffffff'
-    ctx.fillText(type === 'ice' ? '❄' : '🔥', x + (T - 6) / 2, bottom - h / 2 + 6)
+    ctx.fillText(type === 'ice' ? '❄' : '🔥', fx, bottom - h / 2 + 6)
     ctx.globalAlpha = 1
-    })
+  })
 }
 
 function drawChars(t) {
@@ -521,8 +785,13 @@ function drawChars(t) {
     const cx = ch.x + ch.w / 2
     const cy = ch.y + ch.h / 2 + Math.sin(ch.bob) * 1.2
     const col = type === 'ice'
-      ? ['#a8e4ff', '#4fb4f0']
+      ? ['#a8e4ff', '#3fa9f5']
       : ['#ffc48f', '#ff7a45']
+    // 起跳/落地轻微挤压
+    const squash = ch.vy < 0 ? 0.92 : 1.06
+    const w = ch.w
+    const hh = ch.h * squash
+    const topY = cy - hh / 2
 
     // 影子
     ctx.globalAlpha = 0.16
@@ -532,21 +801,29 @@ function drawChars(t) {
     ctx.fill()
     ctx.globalAlpha = 1
 
-    // 身体
-    const g = ctx.createLinearGradient(cx, cy - ch.h / 2, cx, cy + ch.h / 2)
-    g.addColorStop(0, col[0])
-    g.addColorStop(1, col[1])
+    // 身体（发光 + 描边）
+    const g = ctx.createLinearGradient(cx, topY, cx, topY + hh)
+    g.addColorStop(0, col[0]); g.addColorStop(1, col[1])
+    ctx.save()
+    ctx.shadowColor = type === 'ice' ? 'rgba(63,169,245,.35)' : 'rgba(255,122,69,.35)'
+    ctx.shadowBlur = 8
     ctx.fillStyle = g
     ctx.beginPath()
-    ctx.roundRect(ch.x, cy - ch.h / 2, ch.w, ch.h, 9)
+    ctx.roundRect(ch.x, topY, w, hh, 9)
     ctx.fill()
+    ctx.restore()
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'
+    ctx.lineWidth = 1.5
+    ctx.beginPath(); ctx.roundRect(ch.x + 0.8, topY + 0.8, w - 1.6, hh - 1.6, 8); ctx.stroke()
+
+    // 围巾
+    ctx.fillStyle = type === 'ice' ? '#ff8fb0' : '#ffd24d'
+    ctx.beginPath(); ctx.roundRect(ch.x + 2, topY + hh * 0.42, w - 4, 4, 2); ctx.fill()
 
     // 高光
-    ctx.globalAlpha = 0.55
+    ctx.globalAlpha = 0.5
     ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    ctx.roundRect(ch.x + 3, cy - ch.h / 2 + 3, 5, 8, 3)
-    ctx.fill()
+    ctx.beginPath(); ctx.roundRect(ch.x + 3, topY + 3, 5, 8, 3); ctx.fill()
     ctx.globalAlpha = 1
 
     // 眼睛
@@ -565,7 +842,7 @@ function drawChars(t) {
     ctx.font = '11px sans-serif'
     ctx.textAlign = 'center'
     ctx.globalAlpha = 0.9 + Math.sin(t * 3) * 0.1
-    ctx.fillText(type === 'ice' ? '❄' : '🔥', cx, cy - ch.h / 2 - 1)
+    ctx.fillText(type === 'ice' ? '❄' : '🔥', cx, topY - 1)
     ctx.globalAlpha = 1
   })
 }
@@ -586,6 +863,7 @@ function loop(ts) {
     while (acc >= step && guard < 12) { update(step); acc -= step; guard++ }
     if (guard >= 12) acc = 0
   }
+  updateParticles(dt)
   draw(ts)
 }
 

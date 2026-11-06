@@ -168,6 +168,7 @@ const VIDEO_MAP = {
 
 function play(a) {
   if (!a) return
+  recordWatch(a)
   const url = VIDEO_MAP[a.title] ||
     ('https://www.baidu.com/sf/vsearch?pd=video&wd=' + encodeURIComponent(a.title + '动画片'))
   if (/bilibili\.(com|tv|cn)/i.test(url)) {
@@ -188,7 +189,56 @@ function openExternal() {
   if (playerUrl.value) window.open(playerUrl.value, '_blank', 'noopener')
 }
 
-onMounted(load)
+// ============================================================
+// 观看历史（本地存储，按用户隔离；播放时记录，最多保留 30 条）
+// ============================================================
+const HIST_KEY = (uid) => 'atown_hist_' + (uid || 'guest')
+const HIST_MAX = 30
+const watchHistory = ref([])
+const histOpen = ref(false)
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HIST_KEY(props.user && props.user.id))
+    watchHistory.value = raw ? JSON.parse(raw) : []
+  } catch (e) { watchHistory.value = [] }
+}
+
+function recordWatch(a) {
+  if (!a || !a.id) return
+  const item = {
+    id: a.id, title: a.title, cover: a.cover,
+    category: a.category, hot: a.hot, description: a.description, ts: Date.now()
+  }
+  const list = watchHistory.value.filter(x => x.id !== a.id)
+  list.unshift(item)
+  watchHistory.value = list.slice(0, HIST_MAX)
+  try {
+    localStorage.setItem(HIST_KEY(props.user && props.user.id), JSON.stringify(watchHistory.value))
+  } catch (e) {}
+}
+
+function clearHistory() {
+  watchHistory.value = []
+  try { localStorage.removeItem(HIST_KEY(props.user && props.user.id)) } catch (e) {}
+}
+
+function replayFromHistory(h) {
+  histOpen.value = false
+  play(h)
+}
+
+function relativeTime(ts) {
+  const diff = Date.now() - ts
+  const m = 60000, h = 3600000, d = 86400000
+  if (diff < m) return '刚刚'
+  if (diff < h) return Math.floor(diff / m) + ' 分钟前'
+  if (diff < d) return Math.floor(diff / h) + ' 小时前'
+  if (diff < 7 * d) return Math.floor(diff / d) + ' 天前'
+  try { return new Date(ts).toLocaleDateString('zh-CN') } catch (e) { return '' }
+}
+
+onMounted(() => { load(); loadHistory() })
 </script>
 
 <template>
@@ -258,6 +308,16 @@ onMounted(load)
         </div>
 
         <div class="top-me">
+          <div class="hist-wrap">
+            <button
+              class="hist-btn" type="button" :class="{ on: histOpen }"
+              :title="`观看历史（${watchHistory.length}）`"
+              @click="histOpen = !histOpen"
+            >
+              <span class="hist-ico">🕘</span>
+              <i v-if="watchHistory.length" class="hist-dot">{{ watchHistory.length > 99 ? '99+' : watchHistory.length }}</i>
+            </button>
+          </div>
           <span class="top-ava">{{ user.avatar || '🦄' }}</span>
           <span class="top-name">{{ user.nickname || '小探险家' }}</span>
         </div>
@@ -413,7 +473,7 @@ onMounted(load)
                   躲开岩浆和水池，一起走进各自的小门。
                 </p>
                 <div class="pc-tags">
-                  <span>👨‍👩‍👧 2 人同屏</span><span>🧩 3 个关卡</span><span>⌨️ 键盘 / 触屏</span>
+                  <span>👨‍👩‍👧 2 人同屏</span><span>🧩 8 个关卡</span><span>⌨️ 键盘 / 触屏</span><span>🔥 难度递进</span>
                 </div>
               </div>
               <button class="pc-btn" type="button" @click="tab = 'game'">开始游戏 ▶</button>
@@ -471,6 +531,29 @@ onMounted(load)
       </section>
 
       <footer class="foot">动画小镇 · 给小朋友的动画频道 🌟</footer>
+    </div>
+  </div>
+
+  <!-- ============ 观看历史下拉面板（右上角） ============ -->
+  <div v-if="histOpen" class="hist-backdrop" @click="histOpen = false"></div>
+  <div v-if="histOpen" class="hist-panel">
+    <div class="hist-head">
+      <span class="hist-h-title">🕘 观看历史</span>
+      <button v-if="watchHistory.length" class="hist-clear" type="button" @click="clearHistory">清空</button>
+    </div>
+    <div class="hist-list">
+      <p v-if="!watchHistory.length" class="hist-empty">还没有观看记录，去首页播放喜欢的动画吧～</p>
+      <button
+        v-for="h in watchHistory" :key="'h' + h.id"
+        class="hist-item" type="button" @click="replayFromHistory(h)"
+      >
+        <span class="hist-emoji" :style="{ '--g': catGrad(h.category) }">{{ h.cover }}</span>
+        <span class="hist-main">
+          <span class="hist-title" :title="h.title">{{ h.title }}</span>
+          <span class="hist-meta">{{ h.category }} · {{ relativeTime(h.ts) }}</span>
+        </span>
+        <span class="hist-play">▶</span>
+      </button>
     </div>
   </div>
 
@@ -635,6 +718,80 @@ onMounted(load)
 .top-me { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .top-ava { font-size: 20px; }
 .top-name { font-size: 13px; color: var(--ink-soft); }
+
+/* 观看历史按钮（顶栏右上） */
+.hist-wrap { position: relative; display: flex; align-items: center; }
+.hist-btn {
+  position: relative; cursor: pointer; font-family: var(--font);
+  width: 40px; height: 40px; border-radius: 50%; font-size: 18px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); background: #fff; color: var(--ink-soft);
+  box-shadow: 0 4px 14px rgba(120, 140, 190, .12); transition: .18s; flex-shrink: 0;
+}
+.hist-btn:hover { color: var(--accent); border-color: rgba(255, 111, 165, .5); transform: translateY(-1px); }
+.hist-btn.on { color: #fff; border-color: transparent; background: linear-gradient(120deg, #ff6fa5, #ff8fc4); }
+.hist-ico { line-height: 1; }
+.hist-dot {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-style: normal; font-weight: bold; color: #fff; line-height: 1;
+  background: linear-gradient(120deg, #ff8fc4, #ff6fa5);
+  border: 2px solid #fff; border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(255, 111, 165, .5);
+}
+
+/* 观看历史下拉面板 */
+.hist-backdrop { position: fixed; inset: 0; z-index: 55; }
+.hist-panel {
+  position: fixed; top: 62px; right: 20px; z-index: 60;
+  width: 320px; max-width: calc(100vw - 32px); max-height: 70vh;
+  display: flex; flex-direction: column;
+  background: #fff; border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+  box-shadow: 0 22px 54px rgba(120, 140, 190, .28);
+  animation: histIn .18s ease both;
+}
+@keyframes histIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.hist-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(120deg, rgba(255, 143, 196, .14), rgba(109, 184, 255, .12));
+}
+.hist-h-title { font-size: 15px; font-weight: bold; color: var(--ink); }
+.hist-clear {
+  border: 1px solid rgba(120, 140, 190, .35); cursor: pointer; font-family: var(--font);
+  background: #fff; color: var(--ink-soft); font-size: 12px;
+  padding: 5px 12px; border-radius: 999px; transition: .16s;
+}
+.hist-clear:hover { color: #e35b86; border-color: rgba(255, 111, 165, .6); background: #fff5f9; }
+.hist-list { overflow-y: auto; padding: 8px; scrollbar-width: thin; scrollbar-color: #d6def0 transparent; }
+.hist-list::-webkit-scrollbar { width: 6px; }
+.hist-list::-webkit-scrollbar-thumb { background: #d6def0; border-radius: 6px; }
+.hist-empty { font-size: 13px; color: var(--ink-soft); text-align: center; padding: 26px 14px; }
+.hist-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: none; cursor: pointer; font-family: var(--font); text-align: left;
+  background: transparent; padding: 8px 10px; border-radius: 14px; transition: .15s;
+}
+.hist-item:hover { background: rgba(109, 184, 255, .12); }
+.hist-emoji {
+  width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 24px;
+  background: linear-gradient(135deg, var(--g, #cfe8ff, #a6d8ff));
+}
+.hist-main { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.hist-title {
+  font-size: 13px; font-weight: bold; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hist-meta { font-size: 11px; color: var(--ink-soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-play {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: #fff; background: linear-gradient(120deg, #ff6fa5, #ff8fc4);
+  box-shadow: 0 4px 12px rgba(255, 111, 165, .4); opacity: 0; transition: .15s;
+}
+.hist-item:hover .hist-play { opacity: 1; }
 
 /* ============ 轮播 Banner ============ */
 .banner {
