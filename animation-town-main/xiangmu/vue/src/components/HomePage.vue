@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import Toast from './Toast.vue'
 import FireIceGame from './FireIceGame.vue'
 import { useToast } from '../composables/feedback.js'
 import { getRecommend, getFavorites, addFavorite, removeFavorite } from '../api/animation.js'
+import { getFriends, searchUsers, addFriend, removeFriend } from '../api/friend.js'
 
 const props = defineProps({
   user: { type: Object, default: () => ({}) }
@@ -22,6 +23,7 @@ const navMain = [
   { key: 'home', label: '首页', icon: '🏠' },
   { key: 'all', label: '全部动画', icon: '🎬' },
   { key: 'fav', label: '我的收藏', icon: '⭐' },
+  { key: 'friend', label: '我的好友', icon: '🤝' },
   { key: 'game', label: '亲子游戏', icon: '🎮' }
 ]
 
@@ -32,7 +34,10 @@ const CAT_EMOJI = {
   '冒险': '🌳', '治愈': '⭐', '科普': '🦖', '推理': '🐱', '科幻': '🚀', '音乐': '🐠',
   '科学': '🔧', '创意': '🧱', '美食': '☁️', '语文': '📖', '搞笑': '🤡', '友情': '🤝',
   '童话': '👸', '自然': '🦁', '运动': '🏓', '历史': '🏮', '动物': '🐼', '恐龙': '🦕',
-  '艺术': '🎨'
+  '艺术': '🎨',
+  // v2 新增动画类型
+  '神话': '🐉', '机器人': '🤖', '益智': '🧩', '舞蹈': '🩰', '校园': '🎒',
+  '睡前故事': '🌙', '环保': '🌱', '昆虫': '🦋', '交通': '🚄', '国风': '🏯'
 }
 const catEmoji = (c) => CAT_EMOJI[c] || '🎬'
 
@@ -44,7 +49,12 @@ const CAT_GRAD = {
   '语文': ['#d6baff', '#a97cff'], '搞笑': ['#ffbcbc', '#ff7171'], '友情': ['#aef0d2', '#52d3a4'],
   '童话': ['#ffc6e6', '#ff7ec6'], '自然': ['#c0eca6', '#74cc4c'], '运动': ['#b3d4ff', '#549bff'],
   '历史': ['#ecd0a3', '#cc9552'], '动物': ['#cdeba0', '#8ccc4d'], '恐龙': ['#ffe6a6', '#ffc84f'],
-  '艺术': ['#dcbaff', '#b27cff']
+  '艺术': ['#dcbaff', '#b27cff'],
+  // v2 新增动画类型
+  '神话': ['#ffe0b0', '#ffb25e'], '机器人': ['#c9d6ff', '#7f9bff'], '益智': ['#b8f0e2', '#4fd4b0'],
+  '舞蹈': ['#ffd0e8', '#ff85c2'], '校园': ['#c8f0b8', '#7ed460'], '睡前故事': ['#c8d0f8', '#8a9bff'],
+  '环保': ['#c0f0c8', '#5cd47e'], '昆虫': ['#e0d0ff', '#a88cff'], '交通': ['#d0e8ff', '#6ab0ff'],
+  '国风': ['#f3d9b8', '#d8a05e']
 }
 const catGrad = (c) => (CAT_GRAD[c] ? CAT_GRAD[c].join(', ') : '#cfe8ff, #a6d8ff')
 
@@ -155,6 +165,72 @@ async function toggleFav(a) {
 }
 
 // ============================================================
+// 好友功能（列表 + 搜索 + 添加 + 删除）
+// ============================================================
+const friends = ref([])          // 我的好友列表
+const friendLoading = ref(false)
+const friendKw = ref('')         // 搜索昵称关键词
+const friendResults = ref([])    // 搜索结果
+const friendSearched = ref(false) // 是否已执行过搜索（控制结果区显示）
+const friendSearching = ref(false)
+
+const roleText = (r) => (r === 'parent' ? '家长' : '小朋友')
+
+async function loadFriends() {
+  if (!props.user || !props.user.id) return
+  friendLoading.value = true
+  try {
+    friends.value = (await getFriends(props.user.id)) || []
+  } catch (err) {
+    toast(err.message || '好友列表加载失败，请稍后再试～')
+  } finally {
+    friendLoading.value = false
+  }
+}
+
+async function doFriendSearch() {
+  if (!props.user || !props.user.id) return
+  friendSearching.value = true
+  friendSearched.value = true
+  try {
+    friendResults.value = (await searchUsers(props.user.id, friendKw.value.trim())) || []
+  } catch (err) {
+    toast(err.message || '搜索失败，请稍后再试～')
+  } finally {
+    friendSearching.value = false
+  }
+}
+
+async function doAddFriend(u) {
+  if (!props.user || !props.user.id) return
+  try {
+    await addFriend(props.user.id, u.id)
+    toast(`已和 ${u.nickname} 成为好朋友啦 🤝`)
+    // 同步刷新：好友列表 + 搜索结果里的"已是好友"标记
+    friendResults.value = friendResults.value.map(r => (r.id === u.id ? { ...r, isFriend: true } : r))
+    await loadFriends()
+  } catch (err) {
+    toast(err.message || '添加失败，请稍后再试～')
+  }
+}
+
+async function doRemoveFriend(u) {
+  if (!props.user || !props.user.id) return
+  try {
+    await removeFriend(props.user.id, u.id)
+    toast(`已删除好友 ${u.nickname}`)
+    // 双向同步：列表移除 + 搜索结果恢复"可添加"
+    friends.value = friends.value.filter(f => f.id !== u.id)
+    friendResults.value = friendResults.value.map(r => (r.id === u.id ? { ...r, isFriend: false } : r))
+  } catch (err) {
+    toast(err.message || '删除失败，请稍后再试～')
+  }
+}
+
+// 切到"我的好友"页签时刷新列表（在线状态随游戏 WebSocket 变化）
+watch(tab, (v) => { if (v === 'friend') loadFriends() })
+
+// ============================================================
 // 视频播放器（保留原有逻辑）
 // ============================================================
 const playerOpen = ref(false)
@@ -238,7 +314,7 @@ function relativeTime(ts) {
   try { return new Date(ts).toLocaleDateString('zh-CN') } catch (e) { return '' }
 }
 
-onMounted(() => { load(); loadHistory() })
+onMounted(() => { load(); loadHistory(); loadFriends() })
 </script>
 
 <template>
@@ -521,6 +597,70 @@ onMounted(() => { load(); loadHistory() })
               <div class="ptitle" :title="a.title">{{ a.title }}</div>
               <div class="pmeta">{{ a.category }} · {{ a.description }}</div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 我的好友视图 ============ -->
+      <section v-else-if="tab === 'friend' && !searching" class="sec">
+        <h2 class="sec-h">🤝 我的好友（{{ friends.length }}）</h2>
+
+        <!-- 搜索加好友 -->
+        <div class="f-search">
+          <input
+            v-model="friendKw"
+            type="text"
+            placeholder="输入小伙伴的昵称搜索，例如：朵朵"
+            @keyup.enter="doFriendSearch"
+          />
+          <button class="f-search-btn" type="button" :disabled="friendSearching" @click="doFriendSearch">
+            {{ friendSearching ? '搜索中…' : '🔍 搜小伙伴' }}
+          </button>
+        </div>
+
+        <!-- 搜索结果 -->
+        <template v-if="friendSearched">
+          <h3 class="f-sub">🔎 搜索结果（{{ friendResults.length }}）</h3>
+          <p v-if="!friendSearching && !friendResults.length" class="empty">
+            没有找到这个昵称的小伙伴，换个关键词试试～
+          </p>
+          <div v-else class="f-list">
+            <div v-for="u in friendResults" :key="'fs' + u.id" class="f-card">
+              <span class="f-ava">{{ u.avatar || '🧒' }}</span>
+              <div class="f-main">
+                <div class="f-name" :title="u.nickname">{{ u.nickname }}</div>
+                <div class="f-meta">
+                  {{ roleText(u.role) }}
+                  <i v-if="u.online" class="f-online">· 在线</i>
+                </div>
+              </div>
+              <button v-if="u.isFriend" class="f-btn done" type="button" disabled>已是好友</button>
+              <button v-else class="f-btn" type="button" @click="doAddFriend(u)">＋ 加好友</button>
+            </div>
+          </div>
+        </template>
+
+        <!-- 好友列表 -->
+        <h3 class="f-sub">👧👦 我的小伙伴</h3>
+        <p v-if="friendLoading" class="empty">正在加载好友…🌈</p>
+        <p v-else-if="!friends.length" class="empty">
+          还没有好友，用上面的搜索框找到小伙伴，加一个吧～
+        </p>
+        <div v-else class="f-list">
+          <div v-for="u in friends" :key="'fr' + u.id" class="f-card">
+            <span class="f-ava" :class="{ online: u.online }">{{ u.avatar || '🧒' }}</span>
+            <div class="f-main">
+              <div class="f-name" :title="u.nickname">{{ u.nickname }}</div>
+              <div class="f-meta">
+                {{ roleText(u.role) }}
+                <i v-if="u.online" class="f-online">· 在线</i>
+              </div>
+            </div>
+            <button
+              class="f-del" type="button"
+              :title="'删除好友 ' + u.nickname"
+              @click="doRemoveFriend(u)"
+            >✕</button>
           </div>
         </div>
       </section>
@@ -1174,4 +1314,82 @@ onMounted(() => { load(); loadHistory() })
   box-shadow: 0 6px 14px rgba(255, 111, 165, .4); transition: transform .12s;
 }
 .player-open:hover { transform: translateY(-2px); }
+
+/* ============ 我的好友（搜索 + 卡片列表） ============ */
+.f-search {
+  display: flex; gap: 10px; margin: 4px 0 6px; max-width: 480px;
+}
+.f-search input {
+  flex: 1; min-width: 0;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: #ffffff; padding: 10px 14px;
+  font-size: 14px; font-family: var(--font); color: var(--ink);
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.f-search input::placeholder { color: var(--ink-faint); }
+.f-search input:focus {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 3px rgba(109, 184, 255, .18);
+}
+.f-search-btn {
+  border: none; cursor: pointer; flex-shrink: 0; font-family: var(--font);
+  padding: 10px 16px; border-radius: 12px; font-size: 13px; color: #fff;
+  background: linear-gradient(120deg, #6db8ff, #57a4f5);
+  box-shadow: 0 4px 10px rgba(109, 184, 255, .35); transition: transform .12s, filter .15s;
+}
+.f-search-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+.f-search-btn:disabled { opacity: .6; cursor: default; }
+
+.f-sub {
+  font-size: 14px; color: var(--ink-soft);
+  margin: 20px 0 10px; font-weight: normal;
+}
+.f-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.f-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; padding: 12px 14px;
+  transition: transform .18s, box-shadow .18s;
+}
+.f-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(120, 140, 190, .16);
+}
+.f-ava {
+  font-size: 22px; width: 44px; height: 44px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #f0f3ff; border-radius: 50%;
+}
+.f-ava.online {
+  background: #e3f9ed;
+  box-shadow: 0 0 0 2px #7fe0a8, 0 0 10px rgba(47, 191, 113, .35);
+}
+.f-main { flex: 1; min-width: 0; }
+.f-name {
+  font-size: 14px; font-weight: bold; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.f-meta { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+.f-online { font-style: normal; color: #2fbf71; margin-left: 2px; }
+.f-btn {
+  border: none; cursor: pointer; flex-shrink: 0; font-family: var(--font);
+  padding: 8px 14px; border-radius: 10px; font-size: 13px; color: #fff;
+  background: linear-gradient(120deg, var(--accent), #ff8fc4);
+  box-shadow: 0 4px 10px rgba(255, 111, 165, .35); transition: transform .12s, filter .15s;
+}
+.f-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+.f-btn.done {
+  background: #eef1fa; color: var(--ink-faint);
+  box-shadow: none; cursor: default;
+}
+.f-del {
+  border: none; cursor: pointer; flex-shrink: 0;
+  width: 30px; height: 30px; border-radius: 50%; font-size: 13px; line-height: 1;
+  background: #fff2f5; color: #e07a9a; transition: background .15s, color .15s;
+}
+.f-del:hover { background: #ffe0e9; color: #d9557f; }
 </style>

@@ -60,8 +60,6 @@ async function doLogin(e) {
       </button>
     </form>
 
-    <p class="tip">仅「朵朵」账号可进入后台，无需输入密码</p>
-
     <p class="back"><a href="#" @click.prevent="emit('back')">← 返回动画小镇</a></p>
   </main>
 
@@ -102,7 +100,6 @@ async function doLogin(e) {
 .btn-login:active:not(:disabled) { transform: scale(.96); }
 .btn-login:disabled { filter: saturate(.6) brightness(.94); cursor: wait; }
 
-.tip { margin: 14px 0 0; font-size: 12px; color: #a89bc4; }
 
 .back { margin-top: 14px; font-size: 14px; color: #7a6aa0; }
 .back a { color: var(--blue); font-weight: bold; text-decoration: none; }
