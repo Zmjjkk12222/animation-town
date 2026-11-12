@@ -1,7 +1,7 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : localhost_3306
+ Source Server         : test
  Source Server Type    : MySQL
  Source Server Version : 80039 (8.0.39)
  Source Host           : localhost:3306
@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 09/11/2026 10:00:33
+ Date: 12/11/2026 15:12:03
 */
 
 SET NAMES utf8mb4;
@@ -31,7 +31,7 @@ CREATE TABLE `town_admin`  (
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=正常 / 1=已删',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_admin_username`(`username` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '后台管理员表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '后台管理员表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_admin
@@ -54,7 +54,7 @@ CREATE TABLE `town_animation`  (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删 / 1=已删',
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 67 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇动画表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 67 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇动画表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_animation
@@ -121,7 +121,7 @@ CREATE TABLE `town_favorite`  (
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删 / 1=已删',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_user`(`user_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 20 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户收藏表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 23 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户收藏表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_favorite
@@ -145,6 +145,9 @@ INSERT INTO `town_favorite` VALUES (16, 9, 5, '2026-11-09 09:28:24', '2026-11-09
 INSERT INTO `town_favorite` VALUES (17, 7, 3, '2026-11-09 09:29:44', '2026-11-09 09:29:44', 0);
 INSERT INTO `town_favorite` VALUES (18, 7, 64, '2026-11-09 09:45:16', '2026-11-09 09:45:16', 0);
 INSERT INTO `town_favorite` VALUES (19, 7, 65, '2026-11-09 09:58:45', '2026-11-09 09:58:45', 0);
+INSERT INTO `town_favorite` VALUES (20, 1, 65, '2026-11-12 14:06:06', '2026-11-12 14:06:06', 0);
+INSERT INTO `town_favorite` VALUES (21, 1, 64, '2026-11-12 14:07:04', '2026-11-12 14:07:04', 0);
+INSERT INTO `town_favorite` VALUES (22, 1, 66, '2026-11-12 14:07:05', '2026-11-12 14:07:05', 0);
 
 -- ----------------------------
 -- Table structure for town_friend
@@ -160,7 +163,7 @@ CREATE TABLE `town_friend`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_user`(`user_id` ASC) USING BTREE,
   INDEX `idx_friend`(`friend_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇好友表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇好友表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_friend
@@ -192,7 +195,7 @@ CREATE TABLE `town_user`  (
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删 / 1=已删',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_nickname`(`nickname` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 16 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 20 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_user
@@ -212,5 +215,7 @@ INSERT INTO `town_user` VALUES (12, '爸爸', 'parent', '🦄', '12345678911', '
 INSERT INTO `town_user` VALUES (13, '方芳', 'parent', '🦄', '13366373843', '$2a$10$aHz66eGqXECFdK9.Gm/biOairhUtjpb7vhSRU4pTLBJe1YUQRbKCe', '2026-11-09 09:28:55', '2026-11-09 09:28:55', 0);
 INSERT INTO `town_user` VALUES (14, '的理念和', 'kid', '🦄', '', '$2a$10$sUIoGOFkApofHsk9NK9iGe/4AFVmfqBohEORdBYcakDMQdZx5RUZC', '2026-11-09 09:29:18', '2026-11-09 09:29:18', 0);
 INSERT INTO `town_user` VALUES (15, '哈哈', 'kid', '🦄', '', '$2a$10$bkA05ld6ZByWU32Fxy9CMeAqIhwWrmQSVg4u/4pQbs.pcoLaOVxP2', '2026-11-09 09:29:18', '2026-11-09 09:29:18', 0);
+INSERT INTO `town_user` VALUES (18, '妈妈', 'parent', '🦄', '12345678911', '$2a$10$pdYL7naBc5ev6LOt3LtO9.hjw80byghWv5tUiQMJrkV8pWZgg9TR.', '2026-11-12 14:53:07', '2026-11-12 14:53:07', 0);
+INSERT INTO `town_user` VALUES (19, '家长验证11', 'parent', '', '', '$2a$10$Tfs5Rzq28rjFEfrT.ivutO.JK1sJjIzQV.mUpMtsIp2wLH/tLpIum', '2026-11-12 15:04:46', '2026-11-12 15:04:46', 0);
 
 SET FOREIGN_KEY_CHECKS = 1;

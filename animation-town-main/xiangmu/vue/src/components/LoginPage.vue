@@ -90,6 +90,8 @@ async function doLogin(e) {
       <button :class="{ active: mode === 'kid' }" @click="setMode('kid')">🧒 小朋友</button>
       <button :class="{ active: mode === 'parent' }" @click="setMode('parent')">👨‍👩‍👧 爸爸妈妈</button>
     </div>
+    <p class="mode-hint" v-if="mode === 'parent'">用<b>家长账号</b>登录后将进入「亲子守护中心」👨‍👩‍👧</p>
+    <p class="mode-hint" v-else>用<b>小朋友账号</b>登录后将进入动画小镇首页 🎈</p>
 
     <form @submit="doLogin">
       <div class="field">
@@ -136,6 +138,8 @@ async function doLogin(e) {
 .mode { display: flex; gap: 8px; background: #f1ecff; border-radius: 18px; padding: 6px; margin: 0 auto 20px; width: fit-content; }
 .mode button { border: none; background: transparent; font-family: var(--font); cursor: pointer; padding: 9px 18px; border-radius: 14px; font-size: 15px; color: #7a6aa0; transition: .25s; }
 .mode button.active { background: #fff; color: var(--pink-d); box-shadow: 0 4px 12px var(--shadow); transform: scale(1.04); }
+.mode-hint { margin: -8px auto 18px; font-size: 12.5px; color: #8a7aa8; }
+.mode-hint b { color: var(--pink-d); }
 
 .field { position: relative; margin-bottom: 16px; text-align: left; }
 .field label { display: block; font-size: 14px; margin: 0 0 6px 6px; color: #6a5a8a; }

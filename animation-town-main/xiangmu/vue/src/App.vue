@@ -4,6 +4,7 @@ import BgDecor from './components/BgDecor.vue'
 import LoginPage from './components/LoginPage.vue'
 import RegisterPage from './components/RegisterPage.vue'
 import HomePage from './components/HomePage.vue'
+import ParentHomePage from './components/ParentHomePage.vue'
 import AdminLoginPage from './components/AdminLoginPage.vue'
 import AdminPage from './components/AdminPage.vue'
 import { adminLogin, setAdminSession } from './api/admin.js'
@@ -11,7 +12,7 @@ import { adminLogin, setAdminSession } from './api/admin.js'
 // 唯一可进入后台的账号，与后端 AdminServiceImpl.SUPER_ADMIN_USERNAME 保持一致
 const BACKEND_ADMIN_NAME = '朵朵'
 
-// 视图：'login' | 'register' | 'town' | 'admin-login' | 'admin'
+// 视图：'login' | 'register' | 'town' | 'parent-home' | 'admin-login' | 'admin'
 const view = ref('login')
 // 当前登录用户（后端返回、已脱敏）
 const currentUser = ref(null)
@@ -19,12 +20,13 @@ const currentUser = ref(null)
 const adminInfo = ref(null)
 
 onMounted(() => {
-  // 刷新页面后保持登录态
+  // 刷新页面后保持登录态：家长回到家长首页，小朋友回到儿童首页
   const saved = localStorage.getItem('town_user')
   if (saved) {
     try {
-      currentUser.value = JSON.parse(saved)
-      view.value = 'town'
+      const u = JSON.parse(saved)
+      currentUser.value = u
+      view.value = u.role === 'parent' ? 'parent-home' : 'town'
     } catch (e) {
       localStorage.removeItem('town_user')
     }
@@ -34,11 +36,12 @@ onMounted(() => {
 function goRegister() { view.value = 'register' }
 function goLogin() { view.value = 'login' }
 
-// 登录 / 注册成功后由子组件抛出，App 保存用户并切换到首页
+// 登录 / 注册成功后由子组件抛出，App 保存用户并切换到对应首页
+// 儿童(role=kid) -> 儿童首页；家长(role=parent) -> 家长首页
 function onAuthed(user) {
   currentUser.value = user
   localStorage.setItem('town_user', JSON.stringify(user))
-  view.value = 'town'
+  view.value = user && user.role === 'parent' ? 'parent-home' : 'town'
 }
 
 function onLogout() {
@@ -93,6 +96,7 @@ function onAdminExpired() {
   <LoginPage v-if="view === 'login'" @go-register="goRegister" @authed="onAuthed" />
   <RegisterPage v-else-if="view === 'register'" @go-login="goLogin" @authed="onAuthed" />
   <HomePage v-else-if="view === 'town'" :user="currentUser" @logout="onLogout" @go-admin="goAdminLogin" />
+  <ParentHomePage v-else-if="view === 'parent-home'" :user="currentUser" @logout="onLogout" @go-admin="goAdminLogin" />
   <AdminLoginPage v-else-if="view === 'admin-login'" @authed="onAdminAuthed" @back="onAdminBack" />
   <AdminPage v-else-if="view === 'admin'" :admin="adminInfo" @back="onAdminBack" @expired="onAdminExpired" />
 </template>
