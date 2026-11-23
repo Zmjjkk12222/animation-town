@@ -10,6 +10,32 @@
  * 实现：固定步长物理 + 瓦片地图碰撞，Canvas 渲染，无外部依赖。
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { getFriends } from '../api/friend.js'
+import {
+  activeRoom,
+  connect,
+  leaveRoom,
+  onMessage,
+  send as wsSend,
+  status as netStatus
+} from '../net/realtime.js'
+
+// ============================================================
+// 组件入参：当前登录用户（没有传时从 localStorage 兜底）
+// ============================================================
+const props = defineProps({
+  user: { type: Object, default: null }
+})
+
+function storedUser() {
+  try {
+    return JSON.parse(localStorage.getItem('town_user') || 'null')
+  } catch (e) {
+    return null
+  }
+}
+
+const me = computed(() => props.user || storedUser())
 
 // ============================================================
 // 基础参数
@@ -198,6 +224,29 @@ const gemsTotal = ref(0)
 const elapsed = ref(0)
 const cleared = ref(JSON.parse(localStorage.getItem('town_game_cleared') || '[]'))
 const isTouch = ref(false)
+
+// ============================================================
+// 联机状态
+//   net      非响应式对局运行态（只给 canvas 用，不需要响应式）
+//   lobby    在线好友（后端还会再校验一次好友关系与在线状态）
+// ============================================================
+const net = {
+  active: false,
+  host: false,
+  room: '',
+  myChar: 'ice',
+  rx: 0, ry: 0, rFace: 1, rLatch: false, rHas: false
+}
+const netPeer = ref(null)        // 对手 { id, nickname, avatar }
+const netInviting = ref('')      // 已发出邀请、等待对方接受时的昵称
+const netNotice = ref('')        // 联机提示文案
+const lobby = ref([])            // 在线好友
+const lobbyLoading = ref(false)
+
+let pendingRoom = ''             // 我发出的邀请对应的房间号（取消时要用）
+let lastPosAt = 0
+let unsubNet = null
+const POS_INTERVAL = 60          // 位置同步间隔(ms)，约 16 次/秒
 
 let ctx = null
 let grid = []                     // 瓦片字符二维数组
@@ -388,23 +437,50 @@ function tilesOf(ch, inset = 2) {
 function update(dt) {
   const ice = chars.ice
   const fire = chars.fire
+  const isNet = net.active
+  const local = isNet ? chars[net.myChar] : null
+  const remote = isNet ? chars[net.myChar === 'ice' ? 'fire' : 'ice'] : null
 
-  stepChar(ice, dt, {
-    left: keys.has('KeyA'), right: keys.has('KeyD'), jump: keys.has('KeyW')
-  })
-  stepChar(fire, dt, {
-    left: keys.has('ArrowLeft'), right: keys.has('ArrowRight'), jump: keys.has('ArrowUp')
-  })
+  if (isNet) {
+    // 联机：只跑自己这个角色的物理，对手位置由网络包驱动后做插值
+    const input = net.myChar === 'ice'
+      ? { left: keys.has('KeyA'), right: keys.has('KeyD'), jump: keys.has('KeyW') }
+      : { left: keys.has('ArrowLeft'), right: keys.has('ArrowRight'), jump: keys.has('ArrowUp') }
+    stepChar(local, dt, input)
+    if (net.rHas) {
+      const k = Math.min(1, dt * 14)
+      remote.x += (net.rx - remote.x) * k
+      remote.y += (net.ry - remote.y) * k
+      remote.face = net.rFace || remote.face
+      remote.bob += dt * 9
+      remote.onGround = true
+      remote.atDoorLatch = net.rLatch
+    }
+  } else {
+    stepChar(ice, dt, {
+      left: keys.has('KeyA'), right: keys.has('KeyD'), jump: keys.has('KeyW')
+    })
+    stepChar(fire, dt, {
+      left: keys.has('ArrowLeft'), right: keys.has('ArrowRight'), jump: keys.has('ArrowUp')
+    })
+  }
+
+  // 联机时只处理自己控制的角色，单机时两个都算
+  const actors = isNet ? [local] : [ice, fire]
 
   // 踏板（踩一下永久打开闸门）
   if (!plateOn) {
-    for (const ch of [ice, fire]) {
-      if (tilesOf(ch, 4).some(([c, r]) => tile(c, r) === 'P')) { plateOn = true; break }
+    for (const ch of actors) {
+      if (tilesOf(ch, 4).some(([c, r]) => tile(c, r) === 'P')) {
+        plateOn = true
+        if (isNet) wsSend({ t: 'plate', room: net.room })
+        break
+      }
     }
   }
 
   // 危险液体
-  for (const ch of [ice, fire]) {
+  for (const ch of actors) {
     for (const [c, r] of tilesOf(ch, 3)) {
       const t = tile(c, r)
       if (t === 'G') return die(ch, '毒液')
@@ -413,15 +489,20 @@ function update(dt) {
     }
   }
 
-  // 宝石
-  for (const g of gemList) {
+  // 宝石：联机时只收自己颜色的，另一种由对手的 gem 消息同步
+  for (let gi = 0; gi < gemList.length; gi++) {
+    const g = gemList[gi]
     if (g.taken) continue
-    const owner = g.t === 'o' ? ice : fire
+    const ownerType = g.t === 'o' ? 'ice' : 'fire'
+    if (isNet && ownerType !== net.myChar) continue
+    const owner = chars[ownerType]
+    if (!owner) continue
     const gx = g.x * T + T / 2
     const gy = g.y * T + T / 2
     if (gx > owner.x - 6 && gx < owner.x + owner.w + 6 && gy > owner.y - 6 && gy < owner.y + owner.h + 6) {
       g.taken = true
       gemsGot.value++
+      if (isNet) wsSend({ t: 'gem', room: net.room, i: gi })
       const isIce = g.t === 'o'
       spawnParticles(gx, gy, 14, {
         color: isIce ? '#7cc7ff' : '#ff9a5c',
@@ -430,19 +511,25 @@ function update(dt) {
     }
   }
 
-  // 门（到达即点亮，两人各自到过自己的门即可通关，不再要求同帧同格站位）
+  // 门（到达即点亮；联机时自己的门自己判定，对手的门看网络包里的 latch）
   const def = LEVELS[level.value]
-  ice.atDoor = inTile(ice, def.doors.ice)
-  fire.atDoor = inTile(fire, def.doors.fire)
-  ice.atDoorLatch = ice.atDoorLatch || ice.atDoor
-  fire.atDoorLatch = fire.atDoorLatch || fire.atDoor
-
-  // 掉出画面保护
-  for (const ch of [ice, fire]) {
-    if (ch.y > H + 80) return die(ch, '掉落')
+  if (isNet) {
+    local.atDoor = inTile(local, def.doors[net.myChar])
+    local.atDoorLatch = local.atDoorLatch || local.atDoor
+    if (net.rLatch) remote.atDoorLatch = true
+    if (local.atDoorLatch && net.rLatch) win()
+  } else {
+    ice.atDoor = inTile(ice, def.doors.ice)
+    fire.atDoor = inTile(fire, def.doors.fire)
+    ice.atDoorLatch = ice.atDoorLatch || ice.atDoor
+    fire.atDoorLatch = fire.atDoorLatch || fire.atDoor
+    if (ice.atDoorLatch && fire.atDoorLatch) win()
   }
 
-  if (ice.atDoorLatch && fire.atDoorLatch) win()
+  // 掉出画面保护
+  for (const ch of actors) {
+    if (ch.y > H + 80) return die(ch, '掉落')
+  }
 
   timeAcc += dt
   elapsed.value = timeAcc
@@ -488,6 +575,8 @@ function die(ch, reason) {
   deadReason.value = ch.type === 'ice'
     ? `冰娃碰到${reason}啦！`
     : `火娃碰到${reason}啦！`
+  // 联机时把失败同步给对手，否则对方还在跑、两边状态就对不上了
+  if (net.active) wsSend({ t: 'dead', room: net.room, txt: deadReason.value })
 }
 
 function win() {
@@ -863,6 +952,23 @@ function loop(ts) {
     while (acc >= step && guard < 12) { update(step); acc -= step; guard++ }
     if (guard >= 12) acc = 0
   }
+  // 联机：把本地角色位置按固定频率发给对手（房主同时带上关卡号）
+  if (net.active && state.value === 'playing' && ts - lastPosAt > POS_INTERVAL) {
+    lastPosAt = ts
+    const mine = chars[net.myChar]
+    if (mine) {
+      wsSend({
+        t: 'pos',
+        room: net.room,
+        lv: level.value,
+        x: Math.round(mine.x),
+        y: Math.round(mine.y),
+        f: mine.face,
+        l: mine.atDoorLatch ? 1 : 0
+      })
+    }
+  }
+
   updateParticles(dt)
   draw(ts)
 }
@@ -900,18 +1006,33 @@ function start() {
   buildIfNeeded()
   state.value = 'playing'
   lastTs = 0
+  if (net.active) {
+    net.rLatch = false
+    wsSend({ t: 'restart', room: net.room, lv: level.value })
+  }
 }
 
 function buildIfNeeded() {
   if (!grid.length) buildLevel(level.value)
 }
 
-function restart() { loadLevel(level.value); state.value = 'playing' }
+function restart() {
+  loadLevel(level.value)
+  state.value = 'playing'
+  if (net.active) {
+    net.rLatch = false
+    wsSend({ t: 'restart', room: net.room, lv: level.value })
+  }
+}
 
 /** 关卡按钮：直接进入该关开始玩 */
 function playLevel(i) {
   loadLevel(i)
   state.value = 'playing'
+  if (net.active) {
+    net.rLatch = false
+    wsSend({ t: 'restart', room: net.room, lv: i })
+  }
 }
 
 function pause() {
@@ -954,9 +1075,156 @@ function pressPad(key) {
 function releasePad(key) { keys.delete(touchMap[key]) }
 
 // ============================================================
+// 联机：好友列表 / 邀请 / 进房 / 出房 / 消息处理
+// ============================================================
+async function loadLobby() {
+  const u = me.value
+  if (!u || !u.id) return
+  lobbyLoading.value = true
+  try {
+    const rows = await getFriends(u.id)
+    lobby.value = (rows || []).filter((f) => f.online && f.id !== u.id)
+  } catch (e) {
+    lobby.value = []
+  } finally {
+    lobbyLoading.value = false
+  }
+}
+
+function inviteFriend(f) {
+  if (!f || !f.id || net.active) return
+  if (netStatus.value !== 'online') {
+    netNotice.value = '联机服务还没连上，稍等一下再试～'
+    return
+  }
+  if (!wsSend({ t: 'invite', to: f.id })) {
+    netNotice.value = '邀请没发出去，请稍后再试'
+    return
+  }
+  netInviting.value = f.nickname || '好友'
+  netNotice.value = ''
+}
+
+function cancelInvite() {
+  if (pendingRoom) wsSend({ t: 'cancel', room: pendingRoom })
+  pendingRoom = ''
+  netInviting.value = ''
+}
+
+function enterNet(payload, host) {
+  if (!payload || !payload.room) return
+  net.active = true
+  net.host = !!host
+  net.room = payload.room
+  // 后端给的是角色语义（adult=家长 / kid=孩子），这里映射成关卡里的角色：
+  // 大人控冰娃(WASD)，孩子控火娃(方向键)
+  net.myChar = payload.char === 'adult' ? 'ice' : 'fire'
+  netPeer.value = payload.peer || null
+  net.rHas = false
+  net.rLatch = false
+  netNotice.value = ''
+  netInviting.value = ''
+  pendingRoom = ''
+  loadLevel(net.host ? level.value : 0)
+  state.value = 'playing'
+  lastTs = 0
+  acc = 0
+}
+
+function exitNet(notice) {
+  const room = net.room
+  net.active = false
+  net.host = false
+  net.room = ''
+  net.rHas = false
+  net.rLatch = false
+  netPeer.value = null
+  netNotice.value = notice || ''
+  if (room) leaveRoom(room)
+  state.value = 'ready'
+}
+
+function handleNet(msg) {
+  if (!msg || !msg.t) return
+
+  // ---- 房间协商阶段 ----
+  if (msg.t === 'inviting') {
+    pendingRoom = msg.room
+    netInviting.value = (msg.to && msg.to.nickname) || '好友'
+    netNotice.value = ''
+    return
+  }
+  if (msg.t === 'error') {
+    netNotice.value = msg.msg || '联机出了点小问题'
+    netInviting.value = ''
+    pendingRoom = ''
+    return
+  }
+  if (msg.t === 'declined') {
+    netNotice.value = ((msg.from && msg.from.nickname) || '对方') + ' 拒绝了邀请'
+    netInviting.value = ''
+    pendingRoom = ''
+    return
+  }
+  if (msg.t === 'cancelled') {
+    netNotice.value = '邀请已取消'
+    netInviting.value = ''
+    pendingRoom = ''
+    return
+  }
+  if (msg.t === 'start') {
+    enterNet({ room: msg.room, char: msg.char, peer: msg.peer }, !!pendingRoom)
+    return
+  }
+  if (msg.t === 'peer-left') {
+    if (net.active) exitNet('对方离开了房间，可以再邀请一次')
+    return
+  }
+
+  // ---- 对局阶段 ----
+  if (!net.active) return
+  if (msg.room && msg.room !== net.room) return
+
+  if (msg.t === 'pos') {
+    net.rHas = true
+    net.rx = msg.x
+    net.ry = msg.y
+    net.rFace = msg.f || 1
+    net.rLatch = !!msg.l
+    // 关卡由房主决定：客人发现房主换关了就跟过去
+    if (!net.host && typeof msg.lv === 'number' && msg.lv !== level.value) {
+      loadLevel(msg.lv)
+      state.value = 'playing'
+      lastTs = 0
+    }
+  } else if (msg.t === 'gem') {
+    const g = gemList[msg.i]
+    if (g && !g.taken) {
+      g.taken = true
+      gemsGot.value += 1
+    }
+  } else if (msg.t === 'plate') {
+    plateOn = true
+  } else if (msg.t === 'dead') {
+    if (state.value === 'playing') {
+      state.value = 'dead'
+      deadReason.value = msg.txt || '对方碰到危险啦！'
+    }
+  } else if (msg.t === 'restart') {
+    loadLevel(typeof msg.lv === 'number' ? msg.lv : level.value)
+    state.value = 'playing'
+    net.rLatch = false
+    lastTs = 0
+  }
+}
+
+// ============================================================
 // 生命周期
 // ============================================================
 onMounted(() => {
+  if (me.value && me.value.id) connect(me.value.id)
+  unsubNet = onMessage(handleNet)
+  loadLobby()
   buildLevel(0)
   ctx = canvasEl.value.getContext('2d')
   dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -971,6 +1239,13 @@ onMounted(() => {
   window.addEventListener('keyup', onKeyUp)
   window.addEventListener('blur', clearKeys)
   raf = requestAnimationFrame(loop)
+
+  // 在别的页面点了「接受邀请」再切进来时，房间信息已经存在全局状态里
+  if (activeRoom.value) {
+    const payload = activeRoom.value
+    activeRoom.value = null
+    enterNet(payload, false)
+  }
 
   // 仅开发环境：给自动化测试留一个轻量观察/摆位入口
   if (import.meta.env.DEV) {
@@ -989,6 +1264,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // 离开页面要主动退房，否则对手会一直等在那儿
+  if (net.active && net.room) leaveRoom(net.room)
+  if (unsubNet) unsubNet()
   if (raf) cancelAnimationFrame(raf)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
@@ -1035,6 +1313,36 @@ defineExpose({ loadLevel, start, playLevel })
               <li><span class="dot fire"></span>火娃（红）：可走岩浆，怕水池</li>
               <li><span class="dot goo"></span>绿色毒液：两个都不能碰</li>
             </ul>
+            <div class="net-box">
+              <div class="net-h">
+                🤝 和好友联机
+                <span class="net-st" :class="netStatus">
+                  {{ netStatus === 'online' ? '已连接' : netStatus === 'connecting' ? '连接中…' : '未连接' }}
+                </span>
+              </div>
+
+              <p v-if="netInviting" class="net-wait">
+                已邀请 <b>{{ netInviting }}</b>，等 TA 接受…
+                <button class="net-mini" type="button" @click="cancelInvite">取消</button>
+              </p>
+              <p v-else-if="netNotice" class="net-notice">{{ netNotice }}</p>
+
+              <template v-else>
+                <p v-if="lobbyLoading" class="net-empty">正在找在线好友…</p>
+                <p v-else-if="!lobby.length" class="net-empty">
+                  现在没有在线好友，先邀请 TA 一起打开动画小镇吧～
+                </p>
+                <div v-else class="net-list">
+                  <div v-for="f in lobby" :key="'lobby' + f.id" class="net-row">
+                    <span class="net-ava">{{ f.avatar || '🧒' }}</span>
+                    <span class="net-name">{{ f.nickname }}</span>
+                    <button class="net-inv" type="button" @click="inviteFriend(f)">邀请</button>
+                  </div>
+                </div>
+                <button class="net-refresh" type="button" @click="loadLobby">刷新在线好友</button>
+              </template>
+            </div>
+
             <button class="g-btn" type="button" @click="start">开始游戏（空格）</button>
           </template>
 
@@ -1072,9 +1380,15 @@ defineExpose({ loadLevel, start, playLevel })
       <span class="g-chip">第 {{ level + 1 }} 关 · {{ levelName }}</span>
       <span class="g-chip">💎 {{ gemsGot }}/{{ gemsTotal }}</span>
       <span class="g-chip">⏱ {{ TIME_TEXT }}</span>
+      <span v-if="net.active" class="g-chip net-chip">
+        🔗 联机 · {{ (netPeer && netPeer.nickname) || '好友' }}
+      </span>
       <div class="g-spacer"></div>
       <button class="g-btn tiny" type="button" @click="pause">{{ state === 'paused' ? '▶ 继续' : '⏸ 暂停' }}</button>
       <button class="g-btn tiny ghost" type="button" @click="restart">↻ 重开</button>
+      <button v-if="net.active" class="g-btn tiny ghost" type="button" @click="exitNet('')">
+        ⎋ 退出联机
+      </button>
     </div>
 
     <div v-if="isTouch" class="g-pads">
@@ -1196,4 +1510,55 @@ defineExpose({ loadLevel, start, playLevel })
   .g-pads { gap: 8px; }
   .pad-row { gap: 5px; }
 }
+
+/* ============ 联机面板 ============ */
+.net-box {
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  text-align: left;
+  background: #fff8fb;
+  border: 1px solid #ffe0ec;
+  border-radius: 12px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+.net-h {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; font-weight: 600; color: #7a4a63; margin-bottom: 6px;
+}
+.net-st {
+  font-size: 11px; font-weight: 400; padding: 1px 8px; border-radius: 999px;
+  color: #9a93a8; background: #f2f0f6;
+}
+.net-st.online { color: #3d9a63; background: #e8f7ee; }
+.net-st.connecting { color: #b8860b; background: #fdf6e3; }
+.net-st.offline { color: #c0577b; background: #fdeaf1; }
+.net-empty { margin: 4px 0; font-size: 12px; color: #a9a4bb; }
+.net-list { display: flex; flex-direction: column; gap: 6px; }
+.net-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; background: #fff; border-radius: 10px;
+  border: 1px solid #ffeef5;
+}
+.net-ava { font-size: 17px; }
+.net-name {
+  flex: 1; min-width: 0; font-size: 13px; color: #4b4560;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.net-inv, .net-mini {
+  border: none; cursor: pointer; font-family: inherit;
+  font-size: 12px; color: #fff; padding: 4px 12px; border-radius: 999px;
+  background: linear-gradient(120deg, #ff6fa5, #ff8fc4);
+}
+.net-mini {
+  margin-left: 6px; background: #f0eef6; color: #7a7192;
+}
+.net-wait, .net-notice { margin: 4px 0; font-size: 12px; color: #7a7192; }
+.net-notice { color: #c0577b; }
+.net-refresh {
+  margin-top: 8px; width: 100%; border: 1px dashed #ffd0e2; background: #fff;
+  color: #ff6fa5; font-size: 12px; padding: 5px 0; border-radius: 10px; cursor: pointer;
+  font-family: inherit;
+}
+.net-chip { background: #e8f7ee; color: #3d9a63; }
 </style>
