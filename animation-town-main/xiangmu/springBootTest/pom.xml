@@ -76,12 +76,6 @@
 			<artifactId>spring-security-crypto</artifactId>
 		</dependency>
 
-		<!-- WebSocket：亲子游戏联机闯关 -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-websocket</artifactId>
-		</dependency>
-
 		<!-- Lombok 简化实体代码 -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
