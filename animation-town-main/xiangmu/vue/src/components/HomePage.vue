@@ -234,35 +234,64 @@ watch(tab, (v) => { if (v === 'friend') loadFriends() })
 // 视频播放器（保留原有逻辑）
 // ============================================================
 const playerOpen = ref(false)
-const playerUrl = ref('')
+const playerUrl = ref('')          // 真正塞进 iframe 的地址（可能是转换后的嵌入地址）
+const playerExternalUrl = ref('')  // 原始链接，供「在浏览器中打开」使用
 const playerTitle = ref('')
+const playerHq = ref(false)        // 清晰度：默认流畅，避免高清流造成卡顿
 
 const VIDEO_MAP = {
   '海底总动员': 'https://www.baidu.com/sf/vsearch?pd=video&wd=%E6%B5%B7%E5%BA%95%E6%80%BB%E5%8A%A8%E5%91%98%E5%8A%A8%E7%94%BB%E7%89%87&tn=vsearch&lid=c0ccd349000547b6&ie=utf-8&rsv_pq=c0ccd349000547b6&rsv_spt=5&rsv_bp=1&f=8&atn=index',
   '小小发明家': 'https://www.bilibili.com/video/BV1YsBeBmEDo?t=533.5'
 }
 
+/**
+ * 把后台配置的地址规范化为「可嵌入 iframe 播放」的地址。
+ * B 站普通视频页禁止 iframe 嵌套，必须换成官方嵌入播放器。
+ * 流畅优先：autoplay=0 点播才缓冲、high_quality=0 自适应、danmaku=0 关弹幕省性能。
+ */
+function toEmbedUrl(raw, hq = false) {
+  if (!raw) return ''
+  const url = String(raw).trim()
+  const bv = url.match(/(?:\/video\/|[?&]bvid=)(BV[0-9A-Za-z]+)/i)
+  const av = bv ? null : url.match(/(?:\/video\/av|[?&]aid=)(\d+)/i)
+  if (bv || av) {
+    const idPart = bv ? `bvid=${bv[1]}` : `aid=${av[1]}`
+    return `https://player.bilibili.com/player.html?${idPart}&page=1&autoplay=0&high_quality=${hq ? 1 : 0}&danmaku=0&as_wide=1`
+  }
+  return url
+}
+
 function play(a) {
   if (!a) return
   recordWatch(a)
-  const url = VIDEO_MAP[a.title] ||
+  // 优先级：后台 playUrl > 旧内置映射 > 搜索兜底
+  const raw = (a.playUrl || a.play_url || '').trim() ||
+    VIDEO_MAP[a.title] ||
     ('https://www.baidu.com/sf/vsearch?pd=video&wd=' + encodeURIComponent(a.title + '动画片'))
-  if (/bilibili\.(com|tv|cn)/i.test(url)) {
-    window.open(url, '_blank', 'noopener')
-    return
-  }
   playerTitle.value = a.title
-  playerUrl.value = url
+  playerExternalUrl.value = raw
+  playerHq.value = false   // 每次打开都从流畅模式开始
+  playerUrl.value = toEmbedUrl(raw, false)
   playerOpen.value = true
 }
 
 function closePlayer() {
   playerOpen.value = false
   playerUrl.value = ''
+  playerExternalUrl.value = ''
+  playerHq.value = false
+}
+
+/** 切换清晰度会重新加载 iframe，视频从头开始。 */
+function setQuality(hq) {
+  if (playerHq.value === hq || !playerExternalUrl.value) return
+  playerHq.value = hq
+  playerUrl.value = toEmbedUrl(playerExternalUrl.value, hq)
 }
 
 function openExternal() {
-  if (playerUrl.value) window.open(playerUrl.value, '_blank', 'noopener')
+  const url = playerExternalUrl.value || playerUrl.value
+  if (url) window.open(url, '_blank', 'noopener')
 }
 
 // ============================================================
@@ -705,12 +734,18 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
         <button class="player-close" type="button" @click="closePlayer" aria-label="关闭">✕</button>
       </div>
       <div class="player-frame">
-        <iframe v-if="playerUrl" :src="playerUrl" title="动画视频" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+        <iframe v-if="playerUrl" :src="playerUrl" title="动画视频" referrerpolicy="no-referrer" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
         <div v-else class="player-loading">稍等，正在打开视频…</div>
       </div>
       <div class="player-foot">
-        <span class="player-tip">小提示：若视频未直接播放，点右侧按钮在浏览器中观看 🔗</span>
-        <button class="player-open" type="button" @click="openExternal">🔗 在浏览器中打开</button>
+        <span class="player-tip">默认流畅模式，卡顿会自动降清晰度；切换清晰度会重新加载视频</span>
+        <div class="player-actions">
+          <div class="quality-switch" role="group" aria-label="清晰度">
+            <button type="button" :class="{ active: !playerHq }" @click="setQuality(false)">流畅</button>
+            <button type="button" :class="{ active: playerHq }" @click="setQuality(true)">高清</button>
+          </div>
+          <button class="player-open" type="button" @click="openExternal">🔗 在浏览器中打开</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1307,6 +1342,22 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
   padding: 12px 18px; background: #ffffff;
 }
 .player-tip { font-size: 12px; color: var(--ink-soft); }
+.player-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.quality-switch {
+  display: inline-flex; flex-shrink: 0; padding: 3px; border-radius: 10px;
+  background: #f0f2f7; border: 1px solid #e3e7f0;
+}
+.quality-switch button {
+  border: none; cursor: pointer; font-family: var(--font);
+  padding: 6px 14px; border-radius: 8px; font-size: 13px;
+  color: var(--ink-soft); background: transparent; transition: .15s;
+}
+.quality-switch button:hover { color: #ff6fa5; }
+.quality-switch button.active {
+  color: #fff; font-weight: bold;
+  background: linear-gradient(120deg, #ff6fa5, #ff8fc4);
+  box-shadow: 0 3px 10px rgba(255, 111, 165, .35);
+}
 .player-open {
   border: none; cursor: pointer; font-family: var(--font); flex-shrink: 0;
   padding: 10px 18px; border-radius: 12px; font-size: 14px; color: #fff;
