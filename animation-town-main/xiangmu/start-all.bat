@@ -74,27 +74,29 @@ if errorlevel 1 (
 )
 echo        MySQL 正常 [OK]
 
-rem ---------- 3. 初始化数据库(已存在则跳过) ----------
+rem ---------- 3. 初始化/同步数据库(脚本均幂等, 每次都跑) ----------
 echo  [3/6] 检查数据库 animation_town...
 if not exist "%MYSQL_EXE%" (
     echo        [警告] 未找到 mysql.exe, 跳过数据库检查(若库已存在不影响启动)
 ) else (
-    "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% -e "USE animation_town;" >nul 2>&1
+    rem 建库脚本本身含 CREATE DATABASE, 不能带 -D
+    "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town.sql" 2>nul
     if errorlevel 1 (
-        echo        首次运行, 正在初始化数据库...
-        "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town.sql" 2>nul
-        "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town_data.sql" 2>nul
-        "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\town_admin.sql" 2>nul
-        "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\town_friend.sql" 2>nul
-        if errorlevel 1 (
-            echo        [错误] 数据库初始化失败, 请检查 application-dev.properties 里的账号密码
-            pause
-            exit /b 1
-        )
-        echo        数据库初始化完成 [OK]
-    ) else (
-        echo        数据库已就绪 [OK]
+        echo        [错误] 创建数据库失败, 请检查 application-dev.properties 里的账号密码
+        pause
+        exit /b 1
     )
+    rem 其余脚本必须显式 -D: town_admin.sql 里没有 USE 语句, 否则会 "No database selected"
+    for %%F in (animation_town_data.sql town_admin.sql town_friend.sql town_message.sql) do (
+        "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% -D animation_town --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\%%F" 2>nul
+    )
+    "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% -D animation_town -e "SELECT 1 FROM town_message LIMIT 1;" >nul 2>&1
+    if errorlevel 1 (
+        echo        [错误] 数据库同步失败(town_message 缺失), 请检查 MySQL 账号密码
+        pause
+        exit /b 1
+    )
+    echo        数据库结构已同步 [OK]
 )
 
 rem ---------- 4. 启动后端 ----------

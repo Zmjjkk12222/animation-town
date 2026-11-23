@@ -111,11 +111,16 @@ ok "JAVA_HOME = $JAVA_HOME"
 
 # ---------- 1. 检查 Maven ----------
 echo "  [1/5] 检查 Maven..."
-if [ ! -f "$MVN_HOME/boot/plexus-classworlds-*.jar" ]; then
-  if command -v mvn >/dev/null 2>&1; then
-    echo "        [警告] 项目自带 Maven 不完整, 尝试回退到系统 mvn"
+# 注意: 不能用 [ -f "xxx/*.jar" ] —— 方括号里通配符不会展开, 会永远判成"不存在"。
+# 用 ls 真正探测; 若项目自带的被裁掉(只剩 .license 文件), 自动回退到 ~/.m2/wrapper 的完整包。
+if ! ls "$MVN_HOME"/boot/plexus-classworlds-*.jar >/dev/null 2>&1; then
+  ALT_MVN=$(find "$HOME/.m2/wrapper/dists" -maxdepth 4 -type d -name 'apache-maven-3*' 2>/dev/null \
+    | while read -r d; do ls "$d"/boot/plexus-classworlds-*.jar >/dev/null 2>&1 && { echo "$d"; break; }; done)
+  if [ -n "${ALT_MVN:-}" ]; then
+    echo "        [警告] 项目自带 Maven 不完整(缺 boot/*.jar), 回退到 $ALT_MVN"
+    MVN_HOME="$ALT_MVN"
   else
-    fail "未找到可用的 Maven! 项目 tools/apache-maven 不完整, 请运行 tools/setup-maven.bat 重新下载"
+    fail "未找到可用的 Maven! 项目 tools/apache-maven 不完整, 且 ~/.m2/wrapper 里也没有完整包"
   fi
 fi
 ok "Maven 就绪: $MVN_HOME"
@@ -125,19 +130,29 @@ echo "  [2/5] 检查 MySQL 服务(3306)..."
 port_up 3306 || fail "MySQL 未启动! 请先在“服务”里启动 MySQL80"
 ok "MySQL 正常"
 
-# ---------- 3. 初始化数据库(已存在则跳过) ----------
+# ---------- 3. 初始化/同步数据库(脚本均幂等, 每次都跑) ----------
 echo "  [3/5] 检查数据库 animation_town..."
 if [ ! -f "$MYSQL_EXE" ]; then
   echo "        [警告] 未找到 mysql.exe, 跳过数据库检查"
 else
+  SQL_DIR="$BACKEND/src/main/resources/sql"
   if "$MYSQL_EXE" -u"$DB_USER" -p"$DB_PASS" -e "USE animation_town;" >/dev/null 2>&1; then
-    ok "数据库已就绪"
+    ok "数据库已存在, 同步表结构"
   else
-    echo "        首次运行, 正在初始化数据库..."
-    "$MYSQL_EXE" -u"$DB_USER" -p"$DB_PASS" --default-character-set=utf8mb4 < "$BACKEND/src/main/resources/sql/animation_town.sql" 2>/dev/null
-    "$MYSQL_EXE" -u"$DB_USER" -p"$DB_PASS" --default-character-set=utf8mb4 < "$BACKEND/src/main/resources/sql/animation_town_data.sql" 2>/dev/null \
-      && ok "数据库初始化完成" || fail "数据库初始化失败, 请检查 application-dev.properties 的账号密码"
+    echo "        首次运行, 正在创建数据库..."
   fi
+  # 所有脚本都是幂等的(建表用 IF NOT EXISTS、种子数据用 WHERE NOT EXISTS 守卫),
+  # 每次都执行一遍: 老库新增表(如 town_message)也能自动补上
+  "$MYSQL_EXE" -u"$DB_USER" -p"$DB_PASS" --default-character-set=utf8mb4 \
+    < "$SQL_DIR/animation_town.sql" 2>/dev/null \
+    || fail "创建数据库失败, 请检查 application-dev.properties 的账号密码"
+  for f in animation_town_data.sql town_admin.sql town_friend.sql town_message.sql; do
+    # town_admin.sql 里没有 USE 语句, 必须显式指定库, 否则会报 "No database selected"
+    "$MYSQL_EXE" -u"$DB_USER" -p"$DB_PASS" -D animation_town --default-character-set=utf8mb4 \
+      < "$SQL_DIR/$f" 2>/dev/null \
+      || fail "执行 $f 失败, 请检查 MySQL 账号密码与 animation_town 库"
+  done
+  ok "数据库就绪(user / animation / admin / friend / message)"
 fi
 
 # ---------- 4. 启动后端 ----------
