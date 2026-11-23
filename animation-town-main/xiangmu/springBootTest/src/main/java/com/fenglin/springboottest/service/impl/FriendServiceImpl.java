@@ -10,10 +10,12 @@ import com.fenglin.springboottest.service.UserService;
 import com.fenglin.springboottest.ws.OnlineRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -44,13 +46,18 @@ public class FriendServiceImpl extends ServiceImpl<FriendMapper, Friend> impleme
             return Collections.emptyList();
         }
         List<User> users = userService.listByIds(friendIds);
-        return users.stream()
+        List<FriendVO> list = users.stream()
                 .map(u -> {
                     FriendVO vo = FriendVO.of(u.getId(), u.getNickname(), u.getAvatar(), u.getRole());
                     vo.setOnline(onlineRegistry.isOnline(u.getId()));
                     return vo;
                 })
                 .collect(Collectors.toList());
+        // 在线优先，其次按昵称——否则顺序取决于 listByIds 的返回次序，刷新一次可能换一个样
+        list.sort(Comparator
+                .comparing((FriendVO v) -> v.isOnline() ? 0 : 1)
+                .thenComparing(v -> v.getNickname() == null ? "" : v.getNickname()));
+        return list;
     }
 
     @Override
@@ -60,9 +67,13 @@ public class FriendServiceImpl extends ServiceImpl<FriendMapper, Friend> impleme
         if (kw.isEmpty()) {
             return Collections.emptyList();
         }
+        if (kw.length() > 20) {
+            throw new IllegalArgumentException("搜索词太长了，最多 20 个字");
+        }
         List<User> users = userService.lambdaQuery()
                 .like(User::getNickname, kw)
                 .ne(User::getId, userId)
+                .orderByAsc(User::getNickname)
                 .last("LIMIT 20")
                 .list();
         List<Long> friendIds = friendIdsOf(userId);
@@ -101,7 +112,13 @@ public class FriendServiceImpl extends ServiceImpl<FriendMapper, Friend> impleme
         b.setUserId(friendId);
         b.setFriendId(userId);
         rows.add(b);
-        return this.saveBatch(rows);
+        try {
+            return this.saveBatch(rows);
+        } catch (DuplicateKeyException e) {
+            // 唯一索引 uk_pair 兜底：并发 / 重复点击时后到的那条会被数据库挡下，
+            // 此时关系其实已经建好，按幂等成功处理，不把异常抛给前端
+            return true;
+        }
     }
 
     @Override
@@ -110,11 +127,9 @@ public class FriendServiceImpl extends ServiceImpl<FriendMapper, Friend> impleme
         if (friendId == null) {
             throw new IllegalArgumentException("参数不完整");
         }
-        return this.lambdaUpdate()
-                .and(w -> w
-                        .or(x -> x.eq(Friend::getUserId, userId).eq(Friend::getFriendId, friendId))
-                        .or(x -> x.eq(Friend::getUserId, friendId).eq(Friend::getFriendId, userId)))
-                .remove();
+        // 物理删除双向两条：好友关系不必留历史，
+        // 也避免"已删行"占住唯一索引导致重新添加失败
+        return this.baseMapper.deletePair(userId, friendId) > 0;
     }
 
     @Override
