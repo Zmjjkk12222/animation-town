@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import Toast from './Toast.vue'
-import FireIceGame from './FireIceGame.vue'
+import GameHall from './GameHall.vue'
 import { useToast } from '../composables/feedback.js'
 import { getRecommend, getFavorites, addFavorite, removeFavorite } from '../api/animation.js'
 import { getFriends, searchUsers, addFriend, removeFriend } from '../api/friend.js'
@@ -543,13 +543,13 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
                 <span class="pc-fire">🔥</span>
               </div>
               <div class="pc-text">
-                <h2 class="pc-title">🎮 亲子互动 · 冰娃与火娃</h2>
+                <h2 class="pc-title">🎮 亲子游戏乐园 · {{ 26 }} 款小游戏</h2>
                 <p class="pc-desc">
-                  同屏双人闯关：一个人按 <b>W A D</b> 控冰娃，一个人按 <b>← → ↑</b> 控火娃，
-                  躲开岩浆和水池，一起走进各自的小门。
+                  贪吃蛇、俄罗斯方块、打地鼠、换装小屋……点开即玩，全部离线可玩；
+                  还有同屏双人的「冰娃与火娃」，和爸爸妈妈一起闯关！
                 </p>
                 <div class="pc-tags">
-                  <span>👨‍👩‍👧 2 人同屏</span><span>🧩 8 个关卡</span><span>⌨️ 键盘 / 触屏</span><span>🔥 难度递进</span>
+                  <span>🎪 26 款游戏</span><span>👨‍👩‍👧 双人同屏</span><span>⌨️ 键盘 / 触屏</span><span>📴 不用联网</span>
                 </div>
               </div>
               <button class="pc-btn" type="button" @click="tab = 'game'">开始游戏 ▶</button>
@@ -667,7 +667,7 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
 
       <!-- ============ 亲子游戏视图 ============ -->
       <section v-else-if="tab === 'game' && !searching" class="sec">
-        <FireIceGame />
+        <GameHall />
       </section>
 
       <footer class="foot">动画小镇 · 给小朋友的动画频道 🌟</footer>
