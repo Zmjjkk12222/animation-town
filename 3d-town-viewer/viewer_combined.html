@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>动画小镇 · 3D 交互查看器</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./three/three.module.js",
+      "three/addons/": "./three/"
+    }
+  }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+      background:linear-gradient(160deg,#eaf2ff 0%,#f7f0ff 55%,#ffeaf2 100%); }
+    #canvas-wrap { width:100vw; height:100vh; }
+    canvas { display:block; }
+    .header { position:absolute; top:24px; left:28px; z-index:10; pointer-events:none; }
+    .header h1 { margin:0; font-size:22px; font-weight:700; color:#2b3a55; letter-spacing:.5px; }
+    .header p { margin:6px 0 0; font-size:13px; color:#6b7893; }
+    .hint { position:absolute; top:28px; right:28px; z-index:10; font-size:12px;
+      color:#8794ab; text-align:right; line-height:1.7; pointer-events:none; }
+    .hint b { color:#5a6a88; font-weight:600; }
+    .toolbar { position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
+      z-index:10; display:flex; gap:10px; align-items:center;
+      background:rgba(255,255,255,.78); backdrop-filter:blur(12px);
+      padding:10px 16px; border-radius:999px; box-shadow:0 8px 28px rgba(60,80,120,.14); }
+    .toolbar button { border:none; cursor:pointer; font-size:13px; font-weight:600;
+      color:#3a4a68; background:#eef3fb; padding:8px 15px; border-radius:999px;
+      transition:all .18s ease; }
+    .toolbar button:hover { background:#dfe9fa; color:#1d5fd0; }
+    .toolbar button.active { background:#2f7def; color:#fff; }
+    .toolbar .sep { width:1px; height:20px; background:#d5deec; }
+    #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      z-index:20; font-size:16px; color:#6b7893; background:rgba(255,255,255,.6); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🏰 动画小镇 · 3D 交互查看器</h1>
+    <p> residents 已入住 · 拖动旋转 · 滚轮缩放</p>
+  </div>
+  <div class="hint">
+    <b>鼠标左键拖动</b> 旋转<br>
+    <b>滚轮</b> 缩放<br>
+    <b>右键拖动</b> 平移
+  </div>
+  <div id="loading">正在加载 3D 场景…（模型已优化，稍候）</div>
+  <div id="canvas-wrap"></div>
+  <div class="toolbar">
+    <button id="btnRotate" class="active">⏸ 暂停旋转</button>
+    <button id="btnReset">↺ 重置视角</button>
+    <div class="sep"></div>
+    <button id="btnFront">正面</button>
+    <button id="btnTop">俯视</button>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/OrbitControls.js';
+
+    const wrap = document.getElementById('canvas-wrap');
+    const loading = document.getElementById('loading');
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.01, 100);
+    camera.position.set(0, 1.1, 2.4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    wrap.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1.0;
+    controls.minDistance = 0.8;
+    controls.maxDistance = 8;
+    controls.target.set(0, 0, 0);
+
+    // 灯光
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd9d0f0, 2.2));
+    const key = new THREE.DirectionalLight(0xfff3e0, 2.4);
+    key.position.set(3, 5, 4);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048,2048);
+    key.shadow.camera.near = 0.1; key.shadow.camera.far = 20;
+    key.shadow.camera.left=-3; key.shadow.camera.right=3;
+    key.shadow.camera.top=3; key.shadow.camera.bottom=-3;
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xdfe9ff, 0.8);
+    fill.position.set(-4, 2, -3);
+    scene.add(fill);
+
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => params.has(k) ? parseFloat(params.get(k)) : d;
+
+    const loader = new GLTFLoader();
+    function loadGLB(url) {
+      return new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
+    }
+
+    // 图生3D 模型是 Z-up（Blender 风格），转成 three.js 的 Y-up
+    function upright(obj) {
+      const wrapper = new THREE.Group();
+      wrapper.add(obj);
+      obj.rotation.x = -Math.PI/2;
+      wrapper.updateMatrixWorld(true);
+      return wrapper;
+    }
+
+    function normalize(obj, targetMax) {
+      obj.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = new THREE.Vector3(); box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const s = targetMax / maxDim;
+      obj.scale.multiplyScalar(s);
+      obj.updateMatrixWorld(true);
+      const box2 = new THREE.Box3().setFromObject(obj);
+      const center = new THREE.Vector3(); box2.getCenter(center);
+      // 水平居中，垂直方向保留（让底部贴 y=0）
+      obj.position.x -= center.x;
+      obj.position.z -= center.z;
+      obj.position.y -= box2.min.y;
+      obj.updateMatrixWorld(true);
+      const box3 = new THREE.Box3().setFromObject(obj);
+      return { box: box3, size: new THREE.Vector3().subVectors(box3.max, box3.min) };
+    }
+
+    let TOWN_TOP = 0.4;
+    async function build() {
+      const [townGLB, chibiGLB] = await Promise.all([
+        loadGLB('./animation_town_3d.glb'),
+        loadGLB('./chibi_duo.glb')
+      ]);
+
+      // ---- 小镇：立起来归一化到 2.2，底部贴 y=0 ----
+      const town = upright(townGLB);
+      const t = normalize(town, 2.2);
+      TOWN_TOP = t.box.max.y;
+      town.traverse(o => { if (o.isMesh) { o.castShadow=true; o.receiveShadow=true; } });
+      scene.add(town);
+
+      // ---- 小人：立起来归一化，底部贴 y=0 ----
+      const chibiWrap = upright(chibiGLB);
+      const c = normalize(chibiWrap, 1.0);
+      const pivot = new THREE.Group();
+      pivot.add(chibiWrap);
+      const s = num('s', 0.72);
+      pivot.scale.setScalar(s);
+      // chibiWrap 已归一化到底部 y=0，故脚底世界 y = pivot.position.y
+      // 放到小镇顶面（道路平面）
+      const footY = TOWN_TOP - 0.01;
+      pivot.position.set(num('x', 0.0), num('y', footY), num('z', 0.05));
+      pivot.rotation.y = num('ry', 0);
+      chibiWrap.traverse(o => { if (o.isMesh) { o.castShadow=true; } });
+      scene.add(pivot);
+      window.__pivot = pivot;
+      console.log('TOWN_TOP=', TOWN_TOP.toFixed(3), 'chibi size=', c.size.toArray().map(v=>v.toFixed(2)), 'footY=', footY.toFixed(3));
+
+      loading.style.display='none';
+      camera.position.set(num('cx',0), num('cy',1.3), num('cz',2.8));
+      controls.target.set(0, 0.35, 0);
+      controls.update();
+    }
+
+    build().catch(e => {
+      loading.textContent = '加载失败：' + e.message;
+      console.error(e);
+    });
+
+    const btnRotate = document.getElementById('btnRotate');
+    btnRotate.addEventListener('click', () => {
+      controls.autoRotate = !controls.autoRotate;
+      btnRotate.textContent = controls.autoRotate ? '⏸ 暂停旋转' : '▶ 自动旋转';
+      btnRotate.classList.toggle('active', controls.autoRotate);
+    });
+    document.getElementById('btnReset').addEventListener('click', () => {
+      camera.position.set(0,1.0,2.6); controls.target.set(0,0.15,0); controls.update();
+    });
+    document.getElementById('btnFront').addEventListener('click', () => {
+      camera.position.set(0,0.6,2.8); controls.target.set(0,0.15,0); controls.update();
+    });
+    document.getElementById('btnTop').addEventListener('click', () => {
+      camera.position.set(0,2.8,0.9); controls.target.set(0,0.1,0); controls.update();
+    });
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

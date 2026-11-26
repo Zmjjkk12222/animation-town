@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>动画小镇 · 3D 交互查看器</title>
+  <script type="module" src="./model-viewer.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(160deg, #eaf2ff 0%, #f7f0ff 55%, #ffeaf2 100%);
+      overflow: hidden;
+    }
+    model-viewer {
+      width: 100vw; height: 100vh;
+      --poster-color: transparent;
+    }
+    .header {
+      position: absolute; top: 24px; left: 28px; z-index: 10;
+      pointer-events: none;
+    }
+    .header h1 {
+      margin: 0; font-size: 22px; font-weight: 700;
+      color: #2b3a55; letter-spacing: .5px;
+    }
+    .header p {
+      margin: 6px 0 0; font-size: 13px; color: #6b7893;
+    }
+    .toolbar {
+      position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+      z-index: 10; display: flex; gap: 10px; align-items: center;
+      background: rgba(255,255,255,.78);
+      backdrop-filter: blur(12px);
+      padding: 10px 16px; border-radius: 999px;
+      box-shadow: 0 8px 28px rgba(60,80,120,.14);
+    }
+    .toolbar button {
+      border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+      color: #3a4a68; background: #eef3fb;
+      padding: 8px 15px; border-radius: 999px;
+      transition: all .18s ease;
+    }
+    .toolbar button:hover { background: #dfe9fa; color: #1d5fd0; }
+    .toolbar button.active { background: #2f7def; color: #fff; }
+    .toolbar .sep { width: 1px; height: 20px; background: #d5deec; }
+    .hint {
+      position: absolute; top: 28px; right: 28px; z-index: 10;
+      font-size: 12px; color: #8794ab; text-align: right; line-height: 1.7;
+      pointer-events: none;
+    }
+    .hint b { color: #5a6a88; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🏰 动画小镇 · 3D 交互查看器</h1>
+    <p>拖动旋转 · 滚轮缩放 · 任意角度欣赏</p>
+  </div>
+  <div class="hint">
+    <b>鼠标左键拖动</b> 旋转<br>
+    <b>滚轮 / 双指</b> 缩放<br>
+    <b>右键拖动</b> 平移
+  </div>
+
+  <model-viewer
+    id="mv"
+    src="./animation_town_3d.glb"
+    alt="3D 动画小镇模型"
+    camera-controls
+    auto-rotate
+    auto-rotate-delay="1500"
+    rotation-per-second="22deg"
+    shadow-intensity="1"
+    shadow-softness="0.8"
+    exposure="1.1"
+    environment-image="neutral"
+    interaction-prompt="none"
+    min-camera-orbit="auto auto 25%"
+    max-camera-orbit="auto auto 250%">
+  </model-viewer>
+
+  <div class="toolbar">
+    <button id="btnRotate" class="active">⏸ 暂停旋转</button>
+    <button id="btnReset">↺ 重置视角</button>
+    <div class="sep"></div>
+    <button id="btnFront">正面</button>
+    <button id="btnTop">俯视</button>
+  </div>
+
+  <script type="module">
+    const mv = document.getElementById('mv');
+    const btnRotate = document.getElementById('btnRotate');
+
+    btnRotate.addEventListener('click', () => {
+      mv.autoRotate = !mv.autoRotate;
+      btnRotate.textContent = mv.autoRotate ? '⏸ 暂停旋转' : '▶ 自动旋转';
+      btnRotate.classList.toggle('active', mv.autoRotate);
+    });
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      mv.resetTurntableRotation();
+      mv.cameraOrbit = '0deg 75deg 130%';
+      mv.jumpCameraToGoal();
+    });
+
+    document.getElementById('btnFront').addEventListener('click', () => {
+      mv.cameraOrbit = '0deg 80deg 120%';
+      mv.jumpCameraToGoal();
+    });
+
+    document.getElementById('btnTop').addEventListener('click', () => {
+      mv.cameraOrbit = '0deg 15deg 140%';
+      mv.jumpCameraToGoal();
+    });
+  </script>
+</body>
+</html>
