@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39)
  File Encoding         : 65001
 
- Date: 23/11/2026 09:59:47
+ Date: 26/11/2026 14:55:46
 */
 
 SET NAMES utf8mb4;
@@ -161,9 +161,9 @@ CREATE TABLE `town_friend`  (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删 / 1=已删',
   PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_user`(`user_id` ASC) USING BTREE,
+  UNIQUE INDEX `uk_pair`(`user_id` ASC, `friend_id` ASC) USING BTREE,
   INDEX `idx_friend`(`friend_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇好友表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 15 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇好友表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_friend
@@ -178,6 +178,56 @@ INSERT INTO `town_friend` VALUES (7, 7, 1, '2026-11-09 09:23:30', '2026-11-09 09
 INSERT INTO `town_friend` VALUES (8, 1, 7, '2026-11-09 09:23:30', '2026-11-09 09:23:30', 0);
 INSERT INTO `town_friend` VALUES (9, 13, 10, '2026-11-09 09:43:22', '2026-11-09 09:43:22', 0);
 INSERT INTO `town_friend` VALUES (10, 10, 13, '2026-11-09 09:43:22', '2026-11-09 09:43:22', 0);
+INSERT INTO `town_friend` VALUES (13, 1, 20, '2026-11-26 14:21:08', '2026-11-26 14:21:08', 0);
+INSERT INTO `town_friend` VALUES (14, 20, 1, '2026-11-26 14:21:08', '2026-11-26 14:21:08', 0);
+
+-- ----------------------------
+-- Table structure for town_friend_request
+-- ----------------------------
+DROP TABLE IF EXISTS `town_friend_request`;
+CREATE TABLE `town_friend_request`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `from_id` bigint NOT NULL COMMENT '申请发起者 id（town_user.id）',
+  `to_id` bigint NOT NULL COMMENT '接收者 id（town_user.id）',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending' COMMENT '状态：pending=待处理 / accepted=已接受 / rejected=已拒绝 / cancelled=已取消',
+  `remark` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '附加留言',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '申请时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_to_status`(`to_id` ASC, `status` ASC) USING BTREE,
+  INDEX `idx_from_to`(`from_id` ASC, `to_id` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇好友申请表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of town_friend_request
+-- ----------------------------
+INSERT INTO `town_friend_request` VALUES (2, 20, 1, 'accepted', '', '2026-11-26 14:21:02', '2026-11-26 14:21:08');
+
+-- ----------------------------
+-- Table structure for town_message
+-- ----------------------------
+DROP TABLE IF EXISTS `town_message`;
+CREATE TABLE `town_message`  (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键（越大越新）',
+  `from_id` bigint NOT NULL COMMENT '发送者 id（town_user.id）',
+  `to_id` bigint NOT NULL COMMENT '接收者 id（town_user.id）',
+  `type` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'text' COMMENT '消息类型：text/emoji',
+  `content` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '消息正文（最多 500 字）',
+  `read_flag` tinyint NOT NULL DEFAULT 0 COMMENT '是否已读：0=未读 / 1=已读',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_pair`(`from_id` ASC, `to_id` ASC, `id` ASC) USING BTREE,
+  INDEX `idx_to_read`(`to_id` ASC, `read_flag` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 8 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇好友聊天消息' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of town_message
+-- ----------------------------
+INSERT INTO `town_message` VALUES (2, 20, 1, 'emoji', '😁', 1, '2026-11-26 14:23:07');
+INSERT INTO `town_message` VALUES (3, 1, 20, 'text', '你好', 1, '2026-11-26 14:23:28');
+INSERT INTO `town_message` VALUES (5, 1, 20, 'emoji', '💪', 1, '2026-11-26 14:45:37');
+INSERT INTO `town_message` VALUES (6, 20, 1, 'emoji', '🙏', 1, '2026-11-26 14:45:43');
+INSERT INTO `town_message` VALUES (7, 1, 20, 'emoji', '😂', 1, '2026-11-26 14:49:13');
 
 -- ----------------------------
 -- Table structure for town_user
@@ -188,6 +238,7 @@ CREATE TABLE `town_user`  (
   `nickname` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '昵称 / 登录账号',
   `role` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '角色：kid=小朋友 / parent=家长',
   `avatar` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '头像 emoji',
+  `avatar_url` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '头像图片相对路径，空表示未上传',
   `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '家长手机号（小朋友可不填）',
   `password` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT 'BCrypt 加密后的密码',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -195,27 +246,28 @@ CREATE TABLE `town_user`  (
   `deleted` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除：0=未删 / 1=已删',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_nickname`(`nickname` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 20 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 21 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '动画小镇用户表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of town_user
 -- ----------------------------
-INSERT INTO `town_user` VALUES (1, '朵朵', 'kid', '🦄', '', '$2a$10$q3oh1VWzoikHOvYhsdMFP.GsIslpJZcbKD6ixoX3hNfwaIkKlVW9.', '2026-11-09 08:47:17', '2026-11-09 08:47:17', 0);
-INSERT INTO `town_user` VALUES (2, '吴盛', 'kid', '🦄', '', '$2a$10$EamDsGlEx9K4ufQLW5q.puec6Rn630LsclCJl.r/qz7anaAT9D9aa', '2026-11-09 08:50:14', '2026-11-09 08:50:14', 0);
-INSERT INTO `town_user` VALUES (3, '王星', 'kid', '🦄', '', '$2a$10$ARQy5KKTeegyhrKHAkfaD.onjRibLYd4e9W6.nWP9i3.NliMfIujC', '2026-11-09 08:51:49', '2026-11-09 08:51:49', 0);
-INSERT INTO `town_user` VALUES (4, 'wso', 'parent', '🦄', '18345784578', '$2a$10$VK/mxwemoutQmnThg2l/FujzXxHyR7GdWQ46ghVIRrCgYv6HBqeda', '2026-11-09 09:09:23', '2026-11-09 09:09:23', 0);
-INSERT INTO `town_user` VALUES (5, '乐乐', 'kid', '🐼', '', '$2a$10$eHlDlz/bEu1y2izLdQskt.m/M3u6D/hEWQnwJ9AX3OgpxpD7bLpYm', '2026-11-09 09:11:26', '2026-11-09 09:11:26', 0);
-INSERT INTO `town_user` VALUES (6, '996762919', 'kid', '🐻', '', '$2a$10$.ihq2n/d.H3DoWW/K/o/W.LcFLIydNd5BM9rcbrW57JufYqxFMM7y', '2026-11-09 09:22:25', '2026-11-09 09:22:25', 0);
-INSERT INTO `town_user` VALUES (7, '罗磊', 'kid', '🦄', '', '$2a$10$HX6KE2mJHldP4eJep1nsxu5vgGYy7VmK4WzfEOG/KWhXa7gA8Wl2a', '2026-11-09 09:22:36', '2026-11-09 09:22:36', 0);
-INSERT INTO `town_user` VALUES (8, 'zyz', 'parent', '🦄', '12345678901', '$2a$10$s.jOBXgz1kf4PhQewoYMP.O0aTjX2/IpqGe.PnfNLLmEnpfCXx88O', '2026-11-09 09:23:08', '2026-11-09 09:23:08', 0);
-INSERT INTO `town_user` VALUES (9, 'xx', 'kid', '🦄', '', '$2a$10$2UNQZ5drlcRKt0K4880BW.o3ewqwH3CTBQgohV81U4xxH6fZ0vsli', '2026-11-09 09:27:19', '2026-11-09 09:27:19', 0);
-INSERT INTO `town_user` VALUES (10, '刘佳琦', 'kid', '🦄', '', '$2a$10$1AkyU.6cj1b7gYF.30FH1OsbKZ2UPGZQ2vNXrN3NbfM7ShYEstWb6', '2026-11-09 09:27:58', '2026-11-09 09:27:58', 0);
-INSERT INTO `town_user` VALUES (11, '111', 'parent', '🦄', '11111111111', '$2a$10$WjswYvHVdLVjq66uP.zgaeCXI1O5yP1fN2b1NS7tB3JzPIaaE18W6', '2026-11-09 09:28:06', '2026-11-09 09:28:06', 0);
-INSERT INTO `town_user` VALUES (12, '爸爸', 'parent', '🦄', '12345678911', '$2a$10$gsHlQcFLwmKU1bIcq6Dis.X8uzRJf4POqzcgrOtjZ7P8fu2hy7Qe6', '2026-11-09 09:28:07', '2026-11-09 09:28:07', 0);
-INSERT INTO `town_user` VALUES (13, '方芳', 'parent', '🦄', '13366373843', '$2a$10$aHz66eGqXECFdK9.Gm/biOairhUtjpb7vhSRU4pTLBJe1YUQRbKCe', '2026-11-09 09:28:55', '2026-11-09 09:28:55', 0);
-INSERT INTO `town_user` VALUES (14, '的理念和', 'kid', '🦄', '', '$2a$10$sUIoGOFkApofHsk9NK9iGe/4AFVmfqBohEORdBYcakDMQdZx5RUZC', '2026-11-09 09:29:18', '2026-11-09 09:29:18', 0);
-INSERT INTO `town_user` VALUES (15, '哈哈', 'kid', '🦄', '', '$2a$10$bkA05ld6ZByWU32Fxy9CMeAqIhwWrmQSVg4u/4pQbs.pcoLaOVxP2', '2026-11-09 09:29:18', '2026-11-09 09:29:18', 0);
-INSERT INTO `town_user` VALUES (18, '妈妈', 'parent', '🦄', '12345678911', '$2a$10$pdYL7naBc5ev6LOt3LtO9.hjw80byghWv5tUiQMJrkV8pWZgg9TR.', '2026-11-12 14:53:07', '2026-11-12 14:53:07', 0);
-INSERT INTO `town_user` VALUES (19, '家长验证11', 'parent', '', '', '$2a$10$Tfs5Rzq28rjFEfrT.ivutO.JK1sJjIzQV.mUpMtsIp2wLH/tLpIum', '2026-11-12 15:04:46', '2026-11-12 15:04:46', 0);
+INSERT INTO `town_user` VALUES (1, '朵朵', 'kid', '🦄', '', '', '$2a$10$q3oh1VWzoikHOvYhsdMFP.GsIslpJZcbKD6ixoX3hNfwaIkKlVW9.', '2026-11-09 08:47:17', '2026-11-26 14:49:18', 0);
+INSERT INTO `town_user` VALUES (2, '吴盛', 'kid', '🦄', '', '', '$2a$10$EamDsGlEx9K4ufQLW5q.puec6Rn630LsclCJl.r/qz7anaAT9D9aa', '2026-11-09 08:50:14', '2026-11-09 08:50:14', 0);
+INSERT INTO `town_user` VALUES (3, '王星', 'kid', '🦄', '', '', '$2a$10$ARQy5KKTeegyhrKHAkfaD.onjRibLYd4e9W6.nWP9i3.NliMfIujC', '2026-11-09 08:51:49', '2026-11-09 08:51:49', 0);
+INSERT INTO `town_user` VALUES (4, 'wso', 'parent', '🦄', '', '18345784578', '$2a$10$VK/mxwemoutQmnThg2l/FujzXxHyR7GdWQ46ghVIRrCgYv6HBqeda', '2026-11-09 09:09:23', '2026-11-09 09:09:23', 0);
+INSERT INTO `town_user` VALUES (5, '乐乐', 'kid', '🐼', '', '', '$2a$10$eHlDlz/bEu1y2izLdQskt.m/M3u6D/hEWQnwJ9AX3OgpxpD7bLpYm', '2026-11-09 09:11:26', '2026-11-09 09:11:26', 0);
+INSERT INTO `town_user` VALUES (6, '996762919', 'kid', '🐻', '', '', '$2a$10$.ihq2n/d.H3DoWW/K/o/W.LcFLIydNd5BM9rcbrW57JufYqxFMM7y', '2026-11-09 09:22:25', '2026-11-09 09:22:25', 0);
+INSERT INTO `town_user` VALUES (7, '罗磊', 'kid', '🦄', '', '', '$2a$10$HX6KE2mJHldP4eJep1nsxu5vgGYy7VmK4WzfEOG/KWhXa7gA8Wl2a', '2026-11-09 09:22:36', '2026-11-09 09:22:36', 0);
+INSERT INTO `town_user` VALUES (8, 'zyz', 'parent', '🦄', '', '12345678901', '$2a$10$s.jOBXgz1kf4PhQewoYMP.O0aTjX2/IpqGe.PnfNLLmEnpfCXx88O', '2026-11-09 09:23:08', '2026-11-09 09:23:08', 0);
+INSERT INTO `town_user` VALUES (9, 'xx', 'kid', '🦄', '', '', '$2a$10$2UNQZ5drlcRKt0K4880BW.o3ewqwH3CTBQgohV81U4xxH6fZ0vsli', '2026-11-09 09:27:19', '2026-11-09 09:27:19', 0);
+INSERT INTO `town_user` VALUES (10, '刘佳琦', 'kid', '🦄', '', '', '$2a$10$1AkyU.6cj1b7gYF.30FH1OsbKZ2UPGZQ2vNXrN3NbfM7ShYEstWb6', '2026-11-09 09:27:58', '2026-11-09 09:27:58', 0);
+INSERT INTO `town_user` VALUES (11, '111', 'parent', '🦄', '', '11111111111', '$2a$10$WjswYvHVdLVjq66uP.zgaeCXI1O5yP1fN2b1NS7tB3JzPIaaE18W6', '2026-11-09 09:28:06', '2026-11-09 09:28:06', 0);
+INSERT INTO `town_user` VALUES (12, '爸爸', 'parent', '🦄', '', '12345678911', '$2a$10$gsHlQcFLwmKU1bIcq6Dis.X8uzRJf4POqzcgrOtjZ7P8fu2hy7Qe6', '2026-11-09 09:28:07', '2026-11-09 09:28:07', 0);
+INSERT INTO `town_user` VALUES (13, '方芳', 'parent', '🦄', '', '13366373843', '$2a$10$aHz66eGqXECFdK9.Gm/biOairhUtjpb7vhSRU4pTLBJe1YUQRbKCe', '2026-11-09 09:28:55', '2026-11-09 09:28:55', 0);
+INSERT INTO `town_user` VALUES (14, '的理念和', 'kid', '🦄', '', '', '$2a$10$sUIoGOFkApofHsk9NK9iGe/4AFVmfqBohEORdBYcakDMQdZx5RUZC', '2026-11-09 09:29:18', '2026-11-09 09:29:18', 0);
+INSERT INTO `town_user` VALUES (15, '哈哈', 'kid', '🦄', '', '', '$2a$10$bkA05ld6ZByWU32Fxy9CMeAqIhwWrmQSVg4u/4pQbs.pcoLaOVxP2', '2026-11-09 09:29:18', '2026-11-09 09:29:18', 0);
+INSERT INTO `town_user` VALUES (18, '妈妈', 'parent', '🦄', '', '12345678911', '$2a$10$pdYL7naBc5ev6LOt3LtO9.hjw80byghWv5tUiQMJrkV8pWZgg9TR.', '2026-11-12 14:53:07', '2026-11-12 14:53:07', 0);
+INSERT INTO `town_user` VALUES (19, '家长验证11', 'parent', '', '', '', '$2a$10$Tfs5Rzq28rjFEfrT.ivutO.JK1sJjIzQV.mUpMtsIp2wLH/tLpIum', '2026-11-12 15:04:46', '2026-11-12 15:04:46', 0);
+INSERT INTO `town_user` VALUES (20, '燕霜', 'kid', '🦄', '', '', '$2a$10$ThCt/u.gXDLQFyJ8NpjyyuIRi6G7QpoUnet/n0aws756LWjRphCp.', '2026-11-26 14:18:08', '2026-11-26 14:18:08', 0);
 
 SET FOREIGN_KEY_CHECKS = 1;

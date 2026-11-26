@@ -15,6 +15,11 @@ export default defineConfig({
         target: 'http://localhost:8081',
         changeOrigin: true
       },
+      // 用户上传的头像等静态资源：/uploads -> 后端静态资源目录
+      '/uploads': {
+        target: 'http://localhost:8081',
+        changeOrigin: true
+      },
       // 亲子游戏联机 WebSocket：/ws -> ws://localhost:8081
       '/ws': {
         target: 'ws://localhost:8081',

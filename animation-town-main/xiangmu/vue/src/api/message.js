@@ -2,12 +2,12 @@ import { http, unwrap } from './http'
 
 /**
  * 好友聊天 API（对应后端 MessageController /api/message）
- * 消息结构：{ id, from, to, content, read, ts, time }
+ * 消息结构：{ id, from, to, type, content, read, ts, time }
  */
 
-/** 发送消息（落库 + 服务端推送给在线接收方） */
-export async function sendMessage(fromId, toId, content) {
-  return unwrap(await http.post('/message/send', { fromId, toId, content }))
+/** 发送消息（落库 + 服务端推送给在线接收方）；type 默认 text，表情传 emoji */
+export async function sendMessage(fromId, toId, content, type = 'text') {
+  return unwrap(await http.post('/message/send', { fromId, toId, type, content }))
 }
 
 /** 与某位好友的历史消息（升序，最多 limit 条；传 beforeId 可往前翻页） */

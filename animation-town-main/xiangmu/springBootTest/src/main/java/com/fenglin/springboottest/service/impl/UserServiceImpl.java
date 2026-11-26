@@ -80,4 +80,39 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setPassword(null);
         return user;
     }
+
+    @Override
+    public void updateAvatar(Long userId, String avatarUrl) {
+        if (userId == null) {
+            throw new IllegalArgumentException("用户参数不完整");
+        }
+        User user = this.getById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        user.setAvatarUrl(avatarUrl);
+        this.updateById(user);
+    }
+
+    @Override
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        if (userId == null) {
+            throw new IllegalArgumentException("用户参数不完整");
+        }
+        User user = this.getById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        if (oldPassword == null || oldPassword.isEmpty()) {
+            throw new IllegalArgumentException("请填写当前密码～");
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new IllegalArgumentException("新密码至少 6 位～");
+        }
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new IllegalArgumentException("当前密码不对哦，再确认一下～ 🔐");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        this.updateById(user);
+    }
 }

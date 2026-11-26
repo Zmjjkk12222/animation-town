@@ -27,8 +27,11 @@ public class User {
     /** 角色：kid=小朋友 / parent=家长 */
     private String role;
 
-    /** 头像 emoji */
+    /** 头像 emoji（默认占位，未上传图片时使用） */
     private String avatar;
+
+    /** 头像图片 URL（上传后由后端生成，相对路径如 /uploads/avatar/xxx.png；为空表示未上传） */
+    private String avatarUrl;
 
     /** 家长手机号（小朋友可不填） */
     private String phone;

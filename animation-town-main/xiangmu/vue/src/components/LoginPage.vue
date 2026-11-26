@@ -66,7 +66,8 @@ async function doLogin(e) {
     if (remember.value) localStorage.setItem(REMEMBER_KEY, user.value.trim())
     else localStorage.removeItem(REMEMBER_KEY)
     // 记住登录用户（密码已在后端脱敏，不含明文）
-    localStorage.setItem('town_user', JSON.stringify(u))
+    // 用 sessionStorage：每个标签页独立，同一台电脑可用多个标签页登录不同账号同时在线
+    sessionStorage.setItem('town_user', JSON.stringify(u))
     emit('authed', u)
     toast('登入成功！正在打开动画小镇… 🎉')
     burstConfetti()

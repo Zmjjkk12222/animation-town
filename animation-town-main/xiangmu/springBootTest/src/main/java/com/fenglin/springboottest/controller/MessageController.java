@@ -23,13 +23,13 @@ public class MessageController {
     private MessageService messageService;
 
     /**
-     * 发送消息
-     * POST /api/message/send {fromId, toId, content}
+     * 发送消息（text 或 emoji）
+     * POST /api/message/send {fromId, toId, type, content}
      */
     @PostMapping("/send")
     public Result<ChatMessageVO> send(@RequestBody ChatSendRequest request) {
         try {
-            ChatMessageVO vo = messageService.send(request.getFromId(), request.getToId(), request.getContent());
+            ChatMessageVO vo = messageService.send(request.getFromId(), request.getToId(), request.getType(), request.getContent());
             return Result.ok("已发送", vo);
         } catch (IllegalArgumentException e) {
             return Result.fail(e.getMessage());

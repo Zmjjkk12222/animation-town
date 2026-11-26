@@ -19,6 +19,7 @@ public class ChatMessageVO {
     private Long id;
     private Long from;
     private Long to;
+    private String type;
     private String content;
     private Integer read;
     private Long ts;
@@ -29,6 +30,7 @@ public class ChatMessageVO {
         vo.setId(m.getId());
         vo.setFrom(m.getFromId());
         vo.setTo(m.getToId());
+        vo.setType(m.getType() == null ? "text" : m.getType());
         vo.setContent(m.getContent());
         vo.setRead(m.getReadFlag() == null ? 0 : m.getReadFlag());
         LocalDateTime t = m.getCreateTime() == null ? LocalDateTime.now() : m.getCreateTime();

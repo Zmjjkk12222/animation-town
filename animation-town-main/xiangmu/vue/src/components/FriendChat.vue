@@ -27,6 +27,16 @@ const hasMore = ref(false)
 const error = ref('')
 const listEl = ref(null)
 const inputEl = ref(null)
+const emojiOpen = ref(false)
+
+// 内置 emoji 表情包（与项目 emoji 头像风格一致，零图片依赖）
+const EMOJIS = [
+  '😀', '😄', '😁', '😂', '🤣', '😊', '😉', '😍',
+  '🥰', '😘', '😋', '🤗', '🤭', '😐', '😴', '🥳',
+  '😭', '😢', '😅', '🙄', '😳', '😱', '😤', '🤔',
+  '👍', '👎', '👏', '🙏', '💪', '✌️', '🤝', '❤️',
+  '💕', '🎉', '🎁', '🌟', '⭐', '🔥', '🌈', '🍭'
+]
 
 const myId = computed(() => (props.user && props.user.id) || 0)
 const friendId = computed(() => props.friend && props.friend.id)
@@ -109,6 +119,28 @@ async function send() {
   }
 }
 
+/** 发送表情：一条消息只带一个 emoji */
+async function sendEmoji(em) {
+  if (sending.value) return
+  sending.value = true
+  error.value = ''
+  try {
+    const saved = await sendMessage(myId.value, friendId.value, em, 'emoji')
+    push(saved)
+    emojiOpen.value = false
+    scrollBottom(true)
+  } catch (e) {
+    error.value = e.message || '发送失败，请稍后再试'
+  } finally {
+    sending.value = false
+  }
+}
+
+function toggleEmoji() {
+  emojiOpen.value = !emojiOpen.value
+  if (emojiOpen.value && inputEl.value) inputEl.value.focus()
+}
+
 function onInputKeydown(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
@@ -188,7 +220,8 @@ onUnmounted(() => {
               class="fc-item" :class="{ mine: m.from === myId }"
             >
               <span v-if="showTime(i)" class="fc-time">{{ formatTime(m.ts) }}</span>
-              <span class="fc-bubble">{{ m.content }}</span>
+              <span v-if="m.type === 'emoji'" class="fc-emoji">{{ m.content }}</span>
+              <span v-else class="fc-bubble">{{ m.content }}</span>
             </div>
           </template>
         </div>
@@ -196,6 +229,7 @@ onUnmounted(() => {
         <p v-if="error" class="fc-err">{{ error }}</p>
 
         <footer class="fc-foot">
+          <button class="fc-emoji-btn" type="button" :class="{ on: emojiOpen }" @click="toggleEmoji" aria-label="表情">😀</button>
           <textarea
             ref="inputEl" v-model="text" class="fc-input" :maxlength="MAX" rows="1"
             placeholder="说点什么…（Enter 发送，Shift+Enter 换行）"
@@ -207,6 +241,16 @@ onUnmounted(() => {
           >{{ sending ? '…' : '发送' }}</button>
         </footer>
         <div class="fc-count">{{ text.length }}/{{ MAX }}</div>
+
+        <!-- 表情面板 -->
+        <transition name="fc-emoji-panel">
+          <div v-if="emojiOpen" class="fc-emoji-panel">
+            <button
+              v-for="em in EMOJIS" :key="em" type="button"
+              class="fc-emoji-cell" @click="sendEmoji(em)"
+            >{{ em }}</button>
+          </div>
+        </transition>
       </section>
     </div>
   </Teleport>
@@ -280,6 +324,12 @@ onUnmounted(() => {
   border-radius: 14px 14px 4px 14px;
 }
 
+/* 表情消息：大号 emoji，无气泡底色 */
+.fc-emoji {
+  font-size: 44px; line-height: 1.2; padding: 2px 4px;
+  filter: drop-shadow(0 3px 6px rgba(120, 90, 130, .12));
+}
+
 .fc-err {
   margin: 0; padding: 6px 16px; font-size: 12px; color: #e2537c;
   background: #fff1f6;
@@ -288,6 +338,12 @@ onUnmounted(() => {
   display: flex; align-items: flex-end; gap: 8px;
   padding: 10px 14px 4px; border-top: 1px solid #ffe9f2;
 }
+.fc-emoji-btn {
+  flex-shrink: 0; width: 38px; height: 38px; border: none; cursor: pointer;
+  border-radius: 12px; font-size: 18px; line-height: 1;
+  background: #fff5f9; color: #ff6fa5; transition: .15s;
+}
+.fc-emoji-btn:hover, .fc-emoji-btn.on { background: #ffe3ef; transform: translateY(-1px); }
 .fc-input {
   flex: 1; resize: none; max-height: 96px; min-height: 38px;
   padding: 9px 12px; font-size: 14px; font-family: inherit; color: #4b4560;
@@ -303,6 +359,20 @@ onUnmounted(() => {
 }
 .fc-send:disabled { opacity: .5; cursor: default; box-shadow: none; }
 .fc-count { padding: 2px 16px 8px; text-align: right; font-size: 11px; color: #c3bdcd; }
+
+/* 表情面板 */
+.fc-emoji-panel {
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
+  padding: 10px 12px; border-top: 1px solid #ffe9f2;
+  background: #fff9fc; max-height: 190px; overflow-y: auto;
+}
+.fc-emoji-cell {
+  border: none; cursor: pointer; font-size: 24px; line-height: 1;
+  background: transparent; padding: 6px; border-radius: 10px; transition: .12s;
+}
+.fc-emoji-cell:hover { background: #ffe3ef; transform: scale(1.15); }
+.fc-emoji-panel-enter-active, .fc-emoji-panel-leave-active { transition: opacity .18s ease, transform .18s ease; }
+.fc-emoji-panel-enter-from, .fc-emoji-panel-leave-to { opacity: 0; transform: translateY(8px); }
 
 @media (max-width: 640px) {
   .fc-panel { width: 100vw; height: 100dvh; border-left: none; }

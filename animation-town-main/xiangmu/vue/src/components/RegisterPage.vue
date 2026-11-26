@@ -95,7 +95,8 @@ async function doRegister(e) {
       password: pwd.value
     })
     // 记住新创建的用户（密码已在后端脱敏，不含明文）
-    localStorage.setItem('town_user', JSON.stringify(u))
+    // 用 sessionStorage：每个标签页独立，支持同机多标签页登录不同账号同时在线
+    sessionStorage.setItem('town_user', JSON.stringify(u))
     emit('authed', u)
     toast('角色创建成功！欢迎来到动画小镇 🎉')
     burstConfetti()

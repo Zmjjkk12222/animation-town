@@ -2,17 +2,35 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import Toast from './Toast.vue'
 import GameHall from './GameHall.vue'
+import FriendChat from './FriendChat.vue'
+import UserProfile from './UserProfile.vue'
+import AvatarImg from './AvatarImg.vue'
 import { useToast } from '../composables/feedback.js'
 import { getRecommend, getFavorites, addFavorite, removeFavorite } from '../api/animation.js'
-import { getFriends, searchUsers, addFriend, removeFriend } from '../api/friend.js'
+import { getFriends, searchUsers, applyFriend, getPendingRequests, acceptFriend, declineFriend, removeFriend } from '../api/friend.js'
+import { getUnread } from '../api/message.js'
+import { unreadBy, setUnread, clearUnread } from '../net/realtime.js'
+import { consumeOpenGame, gameEntryTick } from '../composables/gameEntry.js'
 
 const props = defineProps({
   user: { type: Object, default: () => ({}) }
 })
-const emit = defineEmits(['logout', 'go-admin'])
+const emit = defineEmits(['logout', 'go-admin', 'update-user'])
 const { toast } = useToast()
 
 const roleLabel = computed(() => (props.user.role === 'parent' ? '家长' : '小朋友'))
+
+// 用户个人页（点击头像/昵称打开）
+const profileOpen = ref(false)
+
+// 头像更新后同步：更新本地登录态（sessionStorage），并通知父组件刷新 currentUser
+function onProfileUpdated(updated) {
+  if (!updated) return
+  try {
+    sessionStorage.setItem('town_user', JSON.stringify(updated))
+  } catch (e) {}
+  emit('update-user', updated)
+}
 
 // ============================================================
 // 左侧竖版导航（仿腾讯视频首页布局）
@@ -165,7 +183,7 @@ async function toggleFav(a) {
 }
 
 // ============================================================
-// 好友功能（列表 + 搜索 + 添加 + 删除）
+// 好友功能（列表 + 搜索 + 申请 + 审批 + 删除）
 // ============================================================
 const friends = ref([])          // 我的好友列表
 const friendLoading = ref(false)
@@ -173,6 +191,7 @@ const friendKw = ref('')         // 搜索昵称关键词
 const friendResults = ref([])    // 搜索结果
 const friendSearched = ref(false) // 是否已执行过搜索（控制结果区显示）
 const friendSearching = ref(false)
+const requests = ref([])         // 我收到的待处理好友申请
 
 const roleText = (r) => (r === 'parent' ? '家长' : '小朋友')
 
@@ -181,10 +200,46 @@ async function loadFriends() {
   friendLoading.value = true
   try {
     friends.value = (await getFriends(props.user.id)) || []
+    loadUnread()
   } catch (err) {
     toast(err.message || '好友列表加载失败，请稍后再试～')
   } finally {
     friendLoading.value = false
+  }
+}
+
+// ------------------------------------------------------------
+// 好友聊天（抽屉面板，点好友卡片上的 💬 打开）
+// ------------------------------------------------------------
+const chatFriend = ref(null)   // 当前正在聊天的好友对象
+// 未读数直接用全局实时连接维护的状态：服务端推 {t:'chat'} 时自动 +1
+const unreadMap = unreadBy
+
+async function loadUnread() {
+  if (!props.user || !props.user.id) return
+  try {
+    setUnread((await getUnread(props.user.id)) || {})
+  } catch (err) {
+    // 未读数失败不影响主流程
+  }
+}
+
+function openChat(u) {
+  chatFriend.value = u
+  clearUnread(u.id)
+}
+
+function closeChat() {
+  chatFriend.value = null
+  loadUnread()
+}
+
+async function loadRequests() {
+  if (!props.user || !props.user.id) return
+  try {
+    requests.value = (await getPendingRequests(props.user.id)) || []
+  } catch (err) {
+    requests.value = []
   }
 }
 
@@ -201,16 +256,38 @@ async function doFriendSearch() {
   }
 }
 
-async function doAddFriend(u) {
+async function doApplyFriend(u) {
   if (!props.user || !props.user.id) return
   try {
-    await addFriend(props.user.id, u.id)
-    toast(`已和 ${u.nickname} 成为好朋友啦 🤝`)
-    // 同步刷新：好友列表 + 搜索结果里的"已是好友"标记
-    friendResults.value = friendResults.value.map(r => (r.id === u.id ? { ...r, isFriend: true } : r))
+    await applyFriend(props.user.id, u.id)
+    toast(`已向 ${u.nickname} 发出好友申请，等 TA 同意吧～`)
+    // 同步搜索结果里的「已申请」标记
+    friendResults.value = friendResults.value.map(r => (r.id === u.id ? { ...r, isApplied: true } : r))
+  } catch (err) {
+    toast(err.message || '申请失败，请稍后再试～')
+  }
+}
+
+async function doAcceptRequest(r) {
+  if (!props.user || !props.user.id) return
+  try {
+    await acceptFriend(props.user.id, r.id)
+    toast(`已和 ${r.nickname} 成为好朋友啦 🤝`)
+    requests.value = requests.value.filter(x => x.id !== r.id)
     await loadFriends()
   } catch (err) {
-    toast(err.message || '添加失败，请稍后再试～')
+    toast(err.message || '操作失败，请稍后再试～')
+  }
+}
+
+async function doDeclineRequest(r) {
+  if (!props.user || !props.user.id) return
+  try {
+    await declineFriend(props.user.id, r.id)
+    toast(`已拒绝 ${r.nickname} 的好友申请`)
+    requests.value = requests.value.filter(x => x.id !== r.id)
+  } catch (err) {
+    toast(err.message || '操作失败，请稍后再试～')
   }
 }
 
@@ -219,16 +296,25 @@ async function doRemoveFriend(u) {
   try {
     await removeFriend(props.user.id, u.id)
     toast(`已删除好友 ${u.nickname}`)
-    // 双向同步：列表移除 + 搜索结果恢复"可添加"
+    // 双向同步：列表移除 + 搜索结果恢复"可申请"
     friends.value = friends.value.filter(f => f.id !== u.id)
-    friendResults.value = friendResults.value.map(r => (r.id === u.id ? { ...r, isFriend: false } : r))
+    friendResults.value = friendResults.value.map(r => (r.id === u.id ? { ...r, isFriend: false, isApplied: false } : r))
   } catch (err) {
     toast(err.message || '删除失败，请稍后再试～')
   }
 }
 
-// 切到"我的好友"页签时刷新列表（在线状态随游戏 WebSocket 变化）
-watch(tab, (v) => { if (v === 'friend') loadFriends() })
+// 切到"我的好友"页签时刷新列表与申请（在线状态随游戏 WebSocket 变化）
+watch(tab, (v) => { if (v === 'friend') { loadFriends(); loadRequests() } })
+
+// 接受联机邀请后：切到「亲子游戏乐园」Tab。
+// 真正"打开冰娃与火娃弹窗"由 GameHall 消费同一个信号完成（谁先挂载谁处理）。
+watch(gameEntryTick, () => {
+  if (tab.value === 'game') return
+  tab.value = 'game'
+  clearKw()
+  sideOpen.value = false
+})
 
 // ============================================================
 // 视频播放器（保留原有逻辑）
@@ -343,7 +429,7 @@ function relativeTime(ts) {
   try { return new Date(ts).toLocaleDateString('zh-CN') } catch (e) { return '' }
 }
 
-onMounted(() => { load(); loadHistory(); loadFriends() })
+onMounted(() => { load(); loadHistory(); loadFriends(); loadRequests() })
 </script>
 
 <template>
@@ -383,13 +469,13 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
         </button>
       </nav>
 
-      <div class="side-user">
-        <span class="u-ava">{{ user.avatar || '🦄' }}</span>
+      <div class="side-user" @click="profileOpen = true">
+        <span class="u-ava"><AvatarImg :avatar-url="user.avatarUrl" :avatar="user.avatar" fallback="🦄" /></span>
         <span class="u-meta">
           <b class="u-name">{{ user.nickname || '小探险家' }}</b>
           <i class="u-role">{{ roleLabel }}</i>
         </span>
-        <button class="u-out" type="button" @click="emit('logout')">退出</button>
+        <span class="u-caret">›</span>
       </div>
     </aside>
     <!-- 移动端遮罩 -->
@@ -423,8 +509,10 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
               <i v-if="watchHistory.length" class="hist-dot">{{ watchHistory.length > 99 ? '99+' : watchHistory.length }}</i>
             </button>
           </div>
-          <span class="top-ava">{{ user.avatar || '🦄' }}</span>
-          <span class="top-name">{{ user.nickname || '小探险家' }}</span>
+          <span class="top-me-user" @click="profileOpen = true">
+            <span class="top-ava"><AvatarImg :avatar-url="user.avatarUrl" :avatar="user.avatar" fallback="🦄" /></span>
+            <span class="top-name">{{ user.nickname || '小探险家' }}</span>
+          </span>
         </div>
       </header>
 
@@ -634,6 +722,22 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
       <section v-else-if="tab === 'friend' && !searching" class="sec">
         <h2 class="sec-h">🤝 我的好友（{{ friends.length }}）</h2>
 
+        <!-- 待处理的好友申请 -->
+        <template v-if="requests.length">
+          <h3 class="f-sub">📩 好友申请（{{ requests.length }}）</h3>
+          <div class="f-list req-list">
+            <div v-for="r in requests" :key="'req' + r.id" class="f-card">
+              <span class="f-ava">{{ r.avatar || '🧒' }}</span>
+              <div class="f-main">
+                <div class="f-name" :title="r.nickname">{{ r.nickname }}</div>
+                <div class="f-meta">{{ roleText(r.role) }}<span v-if="r.remark"> · 「{{ r.remark }}」</span></div>
+              </div>
+              <button class="f-btn ok" type="button" @click="doAcceptRequest(r)">✓ 同意</button>
+              <button class="f-btn no" type="button" @click="doDeclineRequest(r)">✕ 拒绝</button>
+            </div>
+          </div>
+        </template>
+
         <!-- 搜索加好友 -->
         <div class="f-search">
           <input
@@ -664,7 +768,8 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
                 </div>
               </div>
               <button v-if="u.isFriend" class="f-btn done" type="button" disabled>已是好友</button>
-              <button v-else class="f-btn" type="button" @click="doAddFriend(u)">＋ 加好友</button>
+              <button v-else-if="u.isApplied" class="f-btn done" type="button" disabled>已申请</button>
+              <button v-else class="f-btn" type="button" @click="doApplyFriend(u)">＋ 加好友</button>
             </div>
           </div>
         </template>
@@ -685,18 +790,28 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
                 <i v-if="u.online" class="f-online">· 在线</i>
               </div>
             </div>
-            <button
-              class="f-del" type="button"
-              :title="'删除好友 ' + u.nickname"
-              @click="doRemoveFriend(u)"
-            >✕</button>
+            <div class="f-ops">
+              <button
+                class="f-chat" type="button"
+                :title="'和 ' + u.nickname + ' 聊天'"
+                @click="openChat(u)"
+              >
+                💬
+                <i v-if="unreadMap[u.id]" class="f-badge">{{ unreadMap[u.id] > 99 ? '99+' : unreadMap[u.id] }}</i>
+              </button>
+              <button
+                class="f-del" type="button"
+                :title="'删除好友 ' + u.nickname"
+                @click="doRemoveFriend(u)"
+              >✕</button>
+            </div>
           </div>
         </div>
       </section>
 
       <!-- ============ 亲子游戏视图 ============ -->
       <section v-else-if="tab === 'game' && !searching" class="sec">
-        <GameHall />
+        <GameHall :user="user" />
       </section>
 
       <footer class="foot">动画小镇 · 给小朋友的动画频道 🌟</footer>
@@ -749,6 +864,23 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
       </div>
     </div>
   </div>
+
+  <!-- 好友聊天抽屉（点好友卡片上的 💬 打开，Esc 或点遮罩关闭） -->
+  <FriendChat
+    v-if="chatFriend"
+    :user="props.user"
+    :friend="chatFriend"
+    @close="closeChat"
+  />
+
+  <!-- 用户个人页（点头像/昵称打开：上传头像、改密码、退出登录） -->
+  <UserProfile
+    v-if="profileOpen"
+    :user="props.user"
+    @close="profileOpen = false"
+    @logout="emit('logout')"
+    @updated="onProfileUpdated"
+  />
 
   <Toast />
 </template>
@@ -838,21 +970,17 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
   display: flex; align-items: center; gap: 8px;
   border-top: 1px solid var(--line);
   padding: 12px 6px 2px; margin-top: 10px;
+  cursor: pointer;
 }
 .u-ava {
   font-size: 18px; width: 34px; height: 34px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: #f0f3ff; border-radius: 50%;
+  background: #f0f3ff; border-radius: 50%; overflow: hidden;
 }
 .u-meta { flex: 1; display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .u-name { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .u-role { font-size: 11px; font-style: normal; color: var(--accent); }
-.u-out {
-  border: none; cursor: pointer; font-family: var(--font); flex-shrink: 0;
-  padding: 6px 10px; border-radius: 10px; font-size: 12px;
-  color: var(--ink-soft); background: #f0f3ff; transition: .15s;
-}
-.u-out:hover { color: var(--ink); background: #e3e9ff; }
+.u-caret { color: var(--ink-faint); font-size: 18px; flex-shrink: 0; }
 
 .side-mask { display: none; }
 
@@ -891,7 +1019,14 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
 .s-clear:hover { background: #e0e7ff; color: var(--ink); }
 
 .top-me { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.top-ava { font-size: 20px; }
+.top-me-user {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.top-ava {
+  font-size: 20px; width: 30px; height: 30px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; overflow: hidden; background: #f0f3ff;
+}
 .top-name { font-size: 13px; color: var(--ink-soft); }
 
 /* 观看历史按钮（顶栏右上） */
@@ -1437,10 +1572,35 @@ onMounted(() => { load(); loadHistory(); loadFriends() })
   background: #eef1fa; color: var(--ink-faint);
   box-shadow: none; cursor: default;
 }
+.f-btn.ok {
+  background: linear-gradient(120deg, #35c07c, #54d89a);
+  box-shadow: 0 4px 10px rgba(53, 192, 124, .35);
+}
+.f-btn.no {
+  background: #f0eef6; color: #7a7192;
+  box-shadow: none;
+}
+.f-btn.no:hover:not(:disabled) { background: #e6e2f0; color: #5a526e; }
 .f-del {
   border: none; cursor: pointer; flex-shrink: 0;
   width: 30px; height: 30px; border-radius: 50%; font-size: 13px; line-height: 1;
   background: #fff2f5; color: #e07a9a; transition: background .15s, color .15s;
 }
 .f-del:hover { background: #ffe0e9; color: #d9557f; }
+.f-ops { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.f-chat {
+  position: relative;
+  border: none; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 50%; font-size: 14px; line-height: 1;
+  background: #eef6ff; transition: background .15s, transform .12s;
+  display: grid; place-items: center;
+}
+.f-chat:hover { background: #dceaff; transform: translateY(-1px); }
+.f-badge {
+  position: absolute; top: -3px; right: -3px;
+  min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 8px; background: #ff4d6d; color: #fff;
+  font-style: normal; font-size: 9px; line-height: 15px; text-align: center;
+  box-shadow: 0 1px 4px rgba(255, 77, 109, .45);
+}
 </style>

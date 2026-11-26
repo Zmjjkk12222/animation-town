@@ -1,5 +1,6 @@
 package com.fenglin.springboottest.service;
 
+import com.fenglin.springboottest.dto.FriendRequestVO;
 import com.fenglin.springboottest.dto.FriendVO;
 
 import java.util.List;
@@ -15,17 +16,32 @@ public interface FriendService {
     List<FriendVO> listFriends(Long userId);
 
     /**
-     * 按昵称搜索用户（排除自己，标注是否已是好友）
+     * 按昵称搜索用户（排除自己，标注是否已是好友 / 是否已发申请）
      */
     List<FriendVO> searchUsers(Long userId, String keyword);
 
     /**
-     * 添加好友（双向写两条记录，幂等）
+     * 发起好友申请（申请审批制：对方接受后才成为好友）
      */
-    boolean addFriend(Long userId, Long friendId);
+    void applyFriend(Long userId, Long friendId, String remark);
 
     /**
-     * 删除好友（双向逻辑删除）
+     * 我收到的待处理好友申请
+     */
+    List<FriendRequestVO> pendingRequests(Long userId);
+
+    /**
+     * 接受好友申请：写入双向好友关系，申请标记为 accepted
+     */
+    void acceptRequest(Long userId, Long requestId);
+
+    /**
+     * 拒绝好友申请：申请标记为 rejected
+     */
+    void declineRequest(Long userId, Long requestId);
+
+    /**
+     * 删除好友（双向物理删除）
      */
     boolean removeFriend(Long userId, Long friendId);
 

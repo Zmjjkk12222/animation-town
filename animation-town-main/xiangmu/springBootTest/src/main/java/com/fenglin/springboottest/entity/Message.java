@@ -29,7 +29,10 @@ public class Message {
     /** 接收者 id（town_user.id） */
     private Long toId;
 
-    /** 消息正文 */
+    /** 消息类型：text=文本 / emoji=表情（默认 text，数据库维护默认值） */
+    private String type;
+
+    /** 消息正文（text 类型存文字；emoji 类型存 emoji 字符） */
     private String content;
 
     /** 是否已读：0=未读 / 1=已读（数据库维护默认值） */

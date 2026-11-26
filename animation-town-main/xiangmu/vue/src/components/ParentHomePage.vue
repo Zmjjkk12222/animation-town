@@ -1,9 +1,13 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import Toast from './Toast.vue'
+import UserProfile from './UserProfile.vue'
+import AvatarImg from './AvatarImg.vue'
+import GameHall from './GameHall.vue'
 import { useToast } from '../composables/feedback.js'
 import { getRecommend, getFavorites, addFavorite, removeFavorite } from '../api/animation.js'
 import { getFriends } from '../api/friend.js'
+import { gameEntryTick } from '../composables/gameEntry.js'
 import VideoPlayerModal from './VideoPlayerModal.vue'
 
 // ============================================================
@@ -14,8 +18,19 @@ import VideoPlayerModal from './VideoPlayerModal.vue'
 const props = defineProps({
   user: { type: Object, default: () => ({}) }
 })
-const emit = defineEmits(['logout', 'go-admin'])
+const emit = defineEmits(['logout', 'go-admin', 'update-user'])
 const { toast } = useToast()
+
+// 用户个人页
+const profileOpen = ref(false)
+
+function onProfileUpdated(updated) {
+  if (!updated) return
+  try {
+    sessionStorage.setItem('town_user', JSON.stringify(updated))
+  } catch (e) {}
+  emit('update-user', updated)
+}
 
 // ============================================================
 // 导航
@@ -26,8 +41,15 @@ const navMain = [
   { key: 'overview', label: '家长概览', icon: '📊' },
   { key: 'pick', label: '为孩子挑选', icon: '🎬' },
   { key: 'fav', label: '我的收藏', icon: '⭐' },
+  { key: 'game', label: '亲子游戏', icon: '🎮' },
   { key: 'friends', label: '家长好友', icon: '🤝' }
 ]
+
+// 接受联机邀请后自动切到「亲子游戏」（弹窗由 GameHall 自己打开）
+watch(gameEntryTick, () => {
+  tab.value = 'game'
+  sideOpen.value = false
+})
 
 // ============================================================
 // 分类配色（与儿童首页保持一致，避免两套视觉）
@@ -66,7 +88,6 @@ const kw = ref('')
 const cat = ref('全部')
 
 const userName = computed(() => props.user.nickname || '家长')
-const userAvatar = computed(() => props.user.avatar || '👩')
 
 const favIds = computed(() => new Set(favorites.value.map(a => a.id)))
 const onlineCount = computed(() => friends.value.filter(f => f.online).length)
@@ -199,13 +220,13 @@ onMounted(load)
         </button>
       </nav>
 
-      <div class="side-user">
-        <span class="u-ava">{{ userAvatar }}</span>
+      <div class="side-user" @click="profileOpen = true">
+        <span class="u-ava"><AvatarImg :avatar-url="user.avatarUrl" :avatar="user.avatar" fallback="👩" /></span>
         <span class="u-meta">
           <b class="u-name">{{ userName }}</b>
           <i class="u-role">家长</i>
         </span>
-        <button class="u-out" type="button" @click="emit('logout')">退出</button>
+        <span class="u-caret">›</span>
       </div>
     </aside>
     <div v-if="sideOpen" class="side-mask" @click="sideOpen = false"></div>
@@ -218,8 +239,8 @@ onMounted(load)
           <b>{{ greeting }}，{{ userName }}</b>
           <i>{{ tab === 'overview' ? '这里是孩子的观看与收藏概况' : '陪孩子一起，看更好的动画' }}</i>
         </div>
-        <div class="top-me">
-          <span class="top-ava">{{ userAvatar }}</span>
+        <div class="top-me" @click="profileOpen = true">
+          <span class="top-ava"><AvatarImg :avatar-url="user.avatarUrl" :avatar="user.avatar" fallback="👩" /></span>
           <span class="top-name">{{ userName }}</span>
         </div>
       </header>
@@ -397,6 +418,18 @@ onMounted(load)
           </section>
         </template>
 
+        <!-- ================= 亲子游戏（含好友联机） ================= -->
+        <template v-else-if="tab === 'game'">
+          <section class="sec">
+            <h2 class="sec-h">🎮 亲子游戏乐园</h2>
+            <p class="sec-tip">
+              和孩子一起玩：打开「冰娃与火娃」，在游戏里点「🤝 和好友联机」邀请在线好友，
+              对方在任意页面都会收到邀请，点「接受」就进同一局了。
+            </p>
+            <GameHall :user="user" />
+          </section>
+        </template>
+
         <!-- ================= 家长好友 ================= -->
         <template v-else>
           <section class="sec">
@@ -434,6 +467,15 @@ onMounted(load)
     />
 
     <Toast />
+
+    <!-- 用户个人页 -->
+    <UserProfile
+      v-if="profileOpen"
+      :user="user"
+      @close="profileOpen = false"
+      @logout="emit('logout')"
+      @updated="onProfileUpdated"
+    />
   </div>
 </template>
 
@@ -518,21 +560,17 @@ onMounted(load)
   display: flex; align-items: center; gap: 8px;
   border-top: 1px solid var(--line);
   padding: 12px 6px 2px; margin-top: 10px;
+  cursor: pointer;
 }
 .u-ava {
   font-size: 18px; width: 34px; height: 34px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: #f0f3ff; border-radius: 50%;
+  background: #f0f3ff; border-radius: 50%; overflow: hidden;
 }
 .u-meta { flex: 1; display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .u-name { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .u-role { font-size: 11px; font-style: normal; color: var(--accent); }
-.u-out {
-  border: none; cursor: pointer; font-family: var(--font); flex-shrink: 0;
-  padding: 6px 10px; border-radius: 10px; font-size: 12px;
-  color: var(--ink-soft); background: #f0f3ff; transition: .15s;
-}
-.u-out:hover { color: var(--ink); background: #e3e9ff; }
+.u-caret { color: var(--ink-faint); font-size: 18px; flex-shrink: 0; }
 .side-mask { display: none; }
 
 /* ============ 主区域 ============ */
@@ -549,8 +587,12 @@ onMounted(load)
 .tb-title { display: flex; flex-direction: column; line-height: 1.35; }
 .tb-title b { font-size: 16px; }
 .tb-title i { font-size: 12px; font-style: normal; color: var(--ink-soft); }
-.top-me { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.top-ava { font-size: 22px; }
+.top-me { display: flex; align-items: center; gap: 8px; margin-left: auto; cursor: pointer; }
+.top-ava {
+  font-size: 22px; width: 32px; height: 32px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; overflow: hidden; background: #f0f3ff;
+}
 .top-name { font-size: 13px; color: var(--ink-soft); }
 
 /* ============ Hero ============ */

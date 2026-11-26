@@ -13,7 +13,7 @@ import java.util.Map;
 public interface MessageService extends IService<Message> {
 
     /** 发送一条消息：校验好友关系与长度，落库后推送给在线接收方 */
-    ChatMessageVO send(Long fromId, Long toId, String content);
+    ChatMessageVO send(Long fromId, Long toId, String type, String content);
 
     /**
      * 拉取与某位好友的历史消息（按 id 升序返回，最多 limit 条）。

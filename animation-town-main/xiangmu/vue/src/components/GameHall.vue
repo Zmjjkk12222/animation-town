@@ -7,8 +7,13 @@
  * · 1 款内置双人游戏「冰娃与火娃」（FireIceGame.vue 直接内嵌渲染）。
  * · 点击卡片弹出全屏游戏窗口，支持关闭/点击遮罩返回大厅。
  */
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import FireIceGame from './FireIceGame.vue'
+import { consumeOpenGame, gameEntryTick } from '../composables/gameEntry.js'
+
+const props = defineProps({
+  user: { type: Object, default: null }
+})
 
 const active = ref(null) // 当前打开的游戏对象
 
@@ -45,6 +50,18 @@ const games = [
 function open(g) { active.value = g }
 function close() { active.value = null }
 
+/** 接受好友邀请后自动打开「冰娃与火娃」（联机入口就在这个游戏里） */
+function openNetGame() {
+  const g = games.find((x) => x.key === 'fireice')
+  if (g) open(g)
+}
+
+// 两种情况都要处理：
+// 1. 已经停留在大厅 → watch 直接响应
+// 2. 大厅还没挂载（刚切 Tab）→ onMounted 时把请求取走
+watch(gameEntryTick, () => { if (consumeOpenGame()) openNetGame() })
+onMounted(() => { if (consumeOpenGame()) openNetGame() })
+
 // 注意：必须用完整文件名 index.html。
 // Vite dev server 会把 /games/<key>/ 这种尾斜杠目录请求 fallback 到 SPA 首页，
 // 而 /games/<key>/index.html 能正确命中 public 静态文件。
@@ -78,7 +95,7 @@ function iframeUrl(key) { return '/games/' + key + '/index.html' }
           <button class="gm-close" type="button" @click="close" aria-label="关闭">✕</button>
         </div>
         <div class="gm-body">
-          <FireIceGame v-if="active.builtin" />
+          <FireIceGame v-if="active.builtin" :user="user" />
           <iframe
             v-else :src="iframeUrl(active.key)" :title="active.name"
             class="gm-frame" allow="autoplay" allowfullscreen

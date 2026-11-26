@@ -43,7 +43,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final ObjectMapper om = new ObjectMapper();
 
     @Override
-    public ChatMessageVO send(Long fromId, Long toId, String content) {
+    public ChatMessageVO send(Long fromId, Long toId, String type, String content) {
         if (fromId == null || toId == null) {
             throw new IllegalArgumentException("用户参数不完整");
         }
@@ -53,17 +53,24 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         if (!friendService.areFriends(fromId, toId)) {
             throw new IllegalArgumentException("只能给好友发消息哦～");
         }
+        String msgType = type == null ? "text" : type.trim();
+        if (!"text".equals(msgType) && !"emoji".equals(msgType)) {
+            throw new IllegalArgumentException("不支持的消息类型");
+        }
         String text = content == null ? "" : content.trim();
         if (text.isEmpty()) {
             throw new IllegalArgumentException("说点什么吧～");
         }
-        if (text.length() > MAX_LEN) {
-            throw new IllegalArgumentException("消息太长了，最多 " + MAX_LEN + " 字");
+        // 表情消息只允许单个 emoji 字符（或简单 ZWJ 组合序列），限制长度避免塞入大段文字
+        int maxLen = "emoji".equals(msgType) ? 16 : MAX_LEN;
+        if (text.length() > maxLen) {
+            throw new IllegalArgumentException("消息太长了，最多 " + maxLen + " 字");
         }
 
         Message m = new Message();
         m.setFromId(fromId);
         m.setToId(toId);
+        m.setType(msgType);
         m.setContent(text);
         m.setReadFlag(0);
         m.setCreateTime(LocalDateTime.now());
@@ -138,6 +145,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             n.put("id", vo.getId());
             n.put("from", vo.getFrom());
             n.put("to", vo.getTo());
+            n.put("type", vo.getType());
             n.put("content", vo.getContent());
             n.put("ts", vo.getTs());
             n.put("time", vo.getTime());

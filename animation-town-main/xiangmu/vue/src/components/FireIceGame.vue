@@ -9,7 +9,7 @@
  *   · 两人都站进自己的门，本关通过
  * 实现：固定步长物理 + 瓦片地图碰撞，Canvas 渲染，无外部依赖。
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { getFriends } from '../api/friend.js'
 import {
   activeRoom,
@@ -29,7 +29,7 @@ const props = defineProps({
 
 function storedUser() {
   try {
-    return JSON.parse(localStorage.getItem('town_user') || 'null')
+    return JSON.parse(sessionStorage.getItem('town_user') || localStorage.getItem('town_user') || 'null')
   } catch (e) {
     return null
   }
@@ -246,6 +246,7 @@ const lobbyLoading = ref(false)
 let pendingRoom = ''             // 我发出的邀请对应的房间号（取消时要用）
 let lastPosAt = 0
 let unsubNet = null
+let stopStatusWatch = null
 const POS_INTERVAL = 60          // 位置同步间隔(ms)，约 16 次/秒
 
 let ctx = null
@@ -473,7 +474,7 @@ function update(dt) {
     for (const ch of actors) {
       if (tilesOf(ch, 4).some(([c, r]) => tile(c, r) === 'P')) {
         plateOn = true
-        if (isNet) wsSend({ t: 'plate', room: net.room })
+        if (isNet) netSend({ t: 'plate', room: net.room })
         break
       }
     }
@@ -502,7 +503,7 @@ function update(dt) {
     if (gx > owner.x - 6 && gx < owner.x + owner.w + 6 && gy > owner.y - 6 && gy < owner.y + owner.h + 6) {
       g.taken = true
       gemsGot.value++
-      if (isNet) wsSend({ t: 'gem', room: net.room, i: gi })
+      if (isNet) netSend({ t: 'gem', room: net.room, i: gi })
       const isIce = g.t === 'o'
       spawnParticles(gx, gy, 14, {
         color: isIce ? '#7cc7ff' : '#ff9a5c',
@@ -576,7 +577,7 @@ function die(ch, reason) {
     ? `冰娃碰到${reason}啦！`
     : `火娃碰到${reason}啦！`
   // 联机时把失败同步给对手，否则对方还在跑、两边状态就对不上了
-  if (net.active) wsSend({ t: 'dead', room: net.room, txt: deadReason.value })
+  if (net.active) netSend({ t: 'dead', room: net.room, txt: deadReason.value })
 }
 
 function win() {
@@ -957,7 +958,7 @@ function loop(ts) {
     lastPosAt = ts
     const mine = chars[net.myChar]
     if (mine) {
-      wsSend({
+      netSend({
         t: 'pos',
         room: net.room,
         lv: level.value,
@@ -996,6 +997,11 @@ function loadLevel(i) {
 }
 
 function start() {
+  // 正在等对方接受邀请时不要开单机局，否则会变成"一个人玩、对方接受后状态错位"
+  if (netInviting.value) {
+    netNotice.value = '等对方接受邀请再开始吧～'
+    return
+  }
   if (state.value === 'win' || state.value === 'done') {
     // 下一关或从头再来
     const next = level.value + 1
@@ -1008,7 +1014,7 @@ function start() {
   lastTs = 0
   if (net.active) {
     net.rLatch = false
-    wsSend({ t: 'restart', room: net.room, lv: level.value })
+    netSend({ t: 'restart', room: net.room, lv: level.value })
   }
 }
 
@@ -1021,7 +1027,7 @@ function restart() {
   state.value = 'playing'
   if (net.active) {
     net.rLatch = false
-    wsSend({ t: 'restart', room: net.room, lv: level.value })
+    netSend({ t: 'restart', room: net.room, lv: level.value })
   }
 }
 
@@ -1031,7 +1037,7 @@ function playLevel(i) {
   state.value = 'playing'
   if (net.active) {
     net.rLatch = false
-    wsSend({ t: 'restart', room: net.room, lv: i })
+    netSend({ t: 'restart', room: net.room, lv: i })
   }
 }
 
@@ -1077,6 +1083,14 @@ function releasePad(key) { keys.delete(touchMap[key]) }
 // ============================================================
 // 联机：好友列表 / 邀请 / 进房 / 出房 / 消息处理
 // ============================================================
+/** 所有联机消息都显式带上当前账号 id，避免"当前账号"被别的组件改掉后发错身份 */
+function netSend(obj) {
+  const id = me.value && me.value.id
+  return wsSend(obj, id || null)
+}
+
+let lobbyTimer = null
+
 async function loadLobby() {
   const u = me.value
   if (!u || !u.id) return
@@ -1091,24 +1105,42 @@ async function loadLobby() {
   }
 }
 
+/** 邀请等待超时：服务端 90 秒作废，这里 60 秒主动收手，别让用户干等 */
+function clearInviteTimer() {
+  if (lobbyTimer) { clearTimeout(lobbyTimer); lobbyTimer = null }
+}
+
+function armInviteTimer() {
+  clearInviteTimer()
+  lobbyTimer = setTimeout(() => {
+    if (!netInviting.value) return
+    cancelInvite()
+    netNotice.value = '对方还没回应，邀请已取消，可以再试一次～'
+  }, 60000)
+}
+
 function inviteFriend(f) {
   if (!f || !f.id || net.active) return
   if (netStatus.value !== 'online') {
     netNotice.value = '联机服务还没连上，稍等一下再试～'
     return
   }
-  if (!wsSend({ t: 'invite', to: f.id })) {
+  // 接受别人的邀请后这两块会残留，先清干净
+  pendingRoom = ''
+  if (!netSend({ t: 'invite', to: f.id })) {
     netNotice.value = '邀请没发出去，请稍后再试'
     return
   }
   netInviting.value = f.nickname || '好友'
   netNotice.value = ''
+  armInviteTimer()
 }
 
 function cancelInvite() {
-  if (pendingRoom) wsSend({ t: 'cancel', room: pendingRoom })
+  if (pendingRoom) netSend({ t: 'cancel', room: pendingRoom })
   pendingRoom = ''
   netInviting.value = ''
+  clearInviteTimer()
 }
 
 function enterNet(payload, host) {
@@ -1124,6 +1156,7 @@ function enterNet(payload, host) {
   net.rLatch = false
   netNotice.value = ''
   netInviting.value = ''
+  clearInviteTimer()
   pendingRoom = ''
   loadLevel(net.host ? level.value : 0)
   state.value = 'playing'
@@ -1140,6 +1173,9 @@ function exitNet(notice) {
   net.rLatch = false
   netPeer.value = null
   netNotice.value = notice || ''
+  netInviting.value = ''
+  pendingRoom = ''
+  clearInviteTimer()
   if (room) leaveRoom(room)
   state.value = 'ready'
 }
@@ -1158,26 +1194,40 @@ function handleNet(msg) {
     netNotice.value = msg.msg || '联机出了点小问题'
     netInviting.value = ''
     pendingRoom = ''
+    clearInviteTimer()
     return
   }
   if (msg.t === 'declined') {
     netNotice.value = ((msg.from && msg.from.nickname) || '对方') + ' 拒绝了邀请'
     netInviting.value = ''
     pendingRoom = ''
+    clearInviteTimer()
     return
   }
   if (msg.t === 'cancelled') {
     netNotice.value = '邀请已取消'
     netInviting.value = ''
     pendingRoom = ''
+    clearInviteTimer()
     return
   }
   if (msg.t === 'start') {
-    enterNet({ room: msg.room, char: msg.char, peer: msg.peer }, !!pendingRoom)
+    clearInviteTimer()
+    // 已经在同一间房里了（重连补发 / 重复推送），不要重置进度
+    if (net.active && net.room === msg.room) return
+    enterNet({ room: msg.room, char: msg.char, peer: msg.peer }, !!pendingRoom && pendingRoom === msg.room)
     return
   }
   if (msg.t === 'peer-left') {
     if (net.active) exitNet('对方离开了房间，可以再邀请一次')
+    return
+  }
+  if (msg.t === 'peer-offline') {
+    if (net.active) netNotice.value = '对方掉线了，正在等 TA 重连…（30 秒内回来还能继续）'
+    return
+  }
+  if (msg.t === 'peer-online') {
+    if (net.active) netNotice.value = ''
     return
   }
 
@@ -1223,7 +1273,9 @@ function handleNet(msg) {
 // ============================================================
 onMounted(() => {
   if (me.value && me.value.id) connect(me.value.id)
-  unsubNet = onMessage(handleNet)
+  // 只订阅"我这个账号"的消息：之前不传 userId 会收到所有账号的包，
+  // 同标签页里多个账号时会串号（别人被邀请/开局会把我拉进对局）。
+  unsubNet = onMessage(handleNet, me.value && me.value.id)
   loadLobby()
   buildLevel(0)
   ctx = canvasEl.value.getContext('2d')
@@ -1247,6 +1299,17 @@ onMounted(() => {
     enterNet(payload, false)
   }
 
+  // 实时连接恢复后刷一次在线好友：不然断线期间上线的朋友不会出现在列表里
+  stopStatusWatch = watch(netStatus, (v) => {
+    if (v === 'online') {
+      loadLobby()
+      if (netNotice.value && /掉线|断开/.test(netNotice.value)) netNotice.value = ''
+    }
+  })
+
+  // 回到「准备」界面时刷新在线好友，避免列表停留在打开游戏那一刻的状态
+  watch(state, (v) => { if (v === 'ready') loadLobby() })
+
   // 仅开发环境：给自动化测试留一个轻量观察/摆位入口
   if (import.meta.env.DEV) {
     window.__fireIce = {
@@ -1267,6 +1330,8 @@ onUnmounted(() => {
   // 离开页面要主动退房，否则对手会一直等在那儿
   if (net.active && net.room) leaveRoom(net.room)
   if (unsubNet) unsubNet()
+  if (stopStatusWatch) stopStatusWatch()
+  clearInviteTimer()
   if (raf) cancelAnimationFrame(raf)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
@@ -1376,6 +1441,28 @@ defineExpose({ loadLevel, start, playLevel })
       </div>
     </div>
 
+    <!-- 联机状态条：开局后也能看到「等待接受 / 掉线重连」，
+         之前整块联机面板只在 ready 态可见，一点开始就什么提示都没了 -->
+    <div
+      v-if="netInviting || (net.active && (netNotice || netStatus !== 'online'))"
+      class="net-strip"
+      :class="{ warn: !netInviting && (netStatus !== 'online' || !!netNotice) }"
+    >
+      <template v-if="netInviting">
+        <span class="ns-dot"></span>
+        <span>已邀请 <b>{{ netInviting }}</b>，等 TA 接受…</span>
+        <button class="ns-btn" type="button" @click="cancelInvite">取消</button>
+      </template>
+      <template v-else-if="netStatus !== 'online'">
+        <span class="ns-dot"></span>
+        <span>与服务器断开，正在自动重连…</span>
+      </template>
+      <template v-else>
+        <span class="ns-dot"></span>
+        <span>{{ netNotice }}</span>
+      </template>
+    </div>
+
     <div class="g-bar">
       <span class="g-chip">第 {{ level + 1 }} 关 · {{ levelName }}</span>
       <span class="g-chip">💎 {{ gemsGot }}/{{ gemsTotal }}</span>
@@ -1481,6 +1568,31 @@ defineExpose({ loadLevel, start, playLevel })
 .g-btn:hover { transform: translateY(-1px); }
 .g-btn.ghost { background: #f3f0ff; color: var(--ink, #4a3a6b); box-shadow: none; border: 1px solid #e2dcf5; }
 .g-btn.tiny { font-size: 12px; padding: 7px 14px; }
+
+/* 联机状态条（开局后仍可见：等待接受 / 掉线重连 / 提示） */
+.net-strip {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 10px; padding: 8px 12px;
+  font-size: 12.5px; color: #7a3f8f;
+  background: #fbf3ff;
+  border: 1px solid #f0ddfb;
+  border-radius: 10px;
+}
+.net-strip.warn { color: #a4601a; background: #fff8ec; border-color: #ffe4bd; }
+.net-strip b { color: inherit; }
+.ns-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: currentColor;
+  animation: nsBlink 1.3s ease-in-out infinite;
+}
+@keyframes nsBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.ns-btn {
+  margin-left: auto;
+  border: 1px solid currentColor; background: transparent; color: inherit;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  padding: 3px 12px; border-radius: 999px; cursor: pointer;
+}
+.ns-btn:hover { background: rgba(255, 255, 255, .7); }
 
 .g-bar { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .g-chip {

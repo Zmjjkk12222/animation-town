@@ -27,4 +27,17 @@ public interface UserService extends IService<User> {
      * @throws IllegalArgumentException 昵称不存在或密码错误
      */
     User login(LoginRequest request);
+
+    /**
+     * 更新用户头像图片地址（上传成功后落库）
+     * @param userId 用户 id
+     * @param avatarUrl 头像相对路径（如 /uploads/avatar/xxx.png）
+     */
+    void updateAvatar(Long userId, String avatarUrl);
+
+    /**
+     * 修改密码：校验旧密码，更新为新密码（BCrypt 加密）
+     * @throws IllegalArgumentException 用户不存在 / 旧密码错误 / 新密码不合法
+     */
+    void changePassword(Long userId, String oldPassword, String newPassword);
 }

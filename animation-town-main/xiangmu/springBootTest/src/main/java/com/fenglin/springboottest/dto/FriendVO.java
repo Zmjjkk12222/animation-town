@@ -26,6 +26,9 @@ public class FriendVO {
     /** 是否已经是我的好友（搜索结果用） */
     private Boolean isFriend;
 
+    /** 是否已向对方发起待处理的好友申请（搜索结果用） */
+    private Boolean isApplied;
+
     public static FriendVO of(Long id, String nickname, String avatar, String role) {
         FriendVO vo = new FriendVO();
         vo.setId(id);

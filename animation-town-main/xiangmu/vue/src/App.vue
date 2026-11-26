@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import BgDecor from './components/BgDecor.vue'
 import LoginPage from './components/LoginPage.vue'
 import RegisterPage from './components/RegisterPage.vue'
@@ -7,7 +7,11 @@ import HomePage from './components/HomePage.vue'
 import ParentHomePage from './components/ParentHomePage.vue'
 import AdminLoginPage from './components/AdminLoginPage.vue'
 import AdminPage from './components/AdminPage.vue'
+import InviteBar from './components/InviteBar.vue'
 import { adminLogin, setAdminSession } from './api/admin.js'
+import { connect as connectRealtime, close as closeRealtime, setUnread } from './net/realtime.js'
+import { gameEntryTick } from './composables/gameEntry.js'
+import { getUnread } from './api/message.js'
 
 // 唯一可进入后台的账号，与后端 AdminServiceImpl.SUPER_ADMIN_USERNAME 保持一致
 const BACKEND_ADMIN_NAME = '朵朵'
@@ -21,17 +25,35 @@ const adminInfo = ref(null)
 
 onMounted(() => {
   // 刷新页面后保持登录态：家长回到家长首页，小朋友回到儿童首页
-  const saved = localStorage.getItem('town_user')
+  // 优先读 sessionStorage（每个标签页独立，支持同机多账号）；
+  // 兼容旧版存 localStorage 的数据，回退读取一次
+  const saved = sessionStorage.getItem('town_user') || localStorage.getItem('town_user')
   if (saved) {
     try {
       const u = JSON.parse(saved)
       currentUser.value = u
       view.value = u.role === 'parent' ? 'parent-home' : 'town'
+      startRealtime(u)
     } catch (e) {
+      sessionStorage.removeItem('town_user')
       localStorage.removeItem('town_user')
     }
   }
 })
+
+// ============================================================
+// 全站实时连接（好友聊天 + 联机邀请的唯一一条 /ws/game）
+// ------------------------------------------------------------
+// 登录后立刻建连，这样「在线状态」表示的是「打开了小镇」，
+// 而不是「正停在游戏页」；离线好友的未读数在登录时补拉一次。
+// ============================================================
+function startRealtime(u) {
+  if (!u || !u.id) return
+  connectRealtime(u.id)
+  getUnread(u.id)
+    .then((map) => setUnread(map || {}))
+    .catch(() => {})
+}
 
 function goRegister() { view.value = 'register' }
 function goLogin() { view.value = 'login' }
@@ -40,14 +62,36 @@ function goLogin() { view.value = 'login' }
 // 儿童(role=kid) -> 儿童首页；家长(role=parent) -> 家长首页
 function onAuthed(user) {
   currentUser.value = user
-  localStorage.setItem('town_user', JSON.stringify(user))
+  sessionStorage.setItem('town_user', JSON.stringify(user))
+  localStorage.removeItem('town_user') // 清理旧版残留，避免下次误读
   view.value = user && user.role === 'parent' ? 'parent-home' : 'town'
+  startRealtime(user)
 }
 
 function onLogout() {
+  // 退出登录只断开当前账号的连接，不影响其他标签页里仍在线的账号
+  const id = currentUser.value && currentUser.value.id
+  if (id) closeRealtime(id)
   currentUser.value = null
+  sessionStorage.removeItem('town_user')
   localStorage.removeItem('town_user')
   view.value = 'login'
+}
+
+// 接受联机邀请后：如果当时不在首页（例如正在后台管理页），先切回首页，
+// 由首页把 Tab 切到「亲子游戏乐园」并把游戏弹窗打开。
+watch(gameEntryTick, () => {
+  if (!currentUser.value) return
+  if (view.value !== 'town' && view.value !== 'parent-home') {
+    view.value = currentUser.value.role === 'parent' ? 'parent-home' : 'town'
+  }
+})
+
+// 头像等信息更新后，刷新当前用户（响应式回流到所有子组件，头像即时回显）
+function onUserUpdated(updated) {
+  if (!updated) return
+  currentUser.value = updated
+  sessionStorage.setItem('town_user', JSON.stringify(updated))
 }
 
 // ============================================================
@@ -95,8 +139,11 @@ function onAdminExpired() {
   <BgDecor />
   <LoginPage v-if="view === 'login'" @go-register="goRegister" @authed="onAuthed" />
   <RegisterPage v-else-if="view === 'register'" @go-login="goLogin" @authed="onAuthed" />
-  <HomePage v-else-if="view === 'town'" :user="currentUser" @logout="onLogout" @go-admin="goAdminLogin" />
-  <ParentHomePage v-else-if="view === 'parent-home'" :user="currentUser" @logout="onLogout" @go-admin="goAdminLogin" />
+  <HomePage v-else-if="view === 'town'" :user="currentUser" @logout="onLogout" @go-admin="goAdminLogin" @update-user="onUserUpdated" />
+  <ParentHomePage v-else-if="view === 'parent-home'" :user="currentUser" @logout="onLogout" @go-admin="goAdminLogin" @update-user="onUserUpdated" />
   <AdminLoginPage v-else-if="view === 'admin-login'" @authed="onAdminAuthed" @back="onAdminBack" />
   <AdminPage v-else-if="view === 'admin'" :admin="adminInfo" @back="onAdminBack" @expired="onAdminExpired" />
+
+  <!-- 全局联机邀请条 + 实时连接兜底提示（任意页面都能收到邀请） -->
+  <InviteBar />
 </template>

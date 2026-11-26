@@ -14,6 +14,9 @@ public class ChatSendRequest {
     /** 接收者（必须是好友） */
     private Long toId;
 
-    /** 正文，最多 500 字 */
+    /** 消息类型：text / emoji（默认 text） */
+    private String type;
+
+    /** 正文，最多 500 字（emoji 类型存 emoji 字符） */
     private String content;
 }

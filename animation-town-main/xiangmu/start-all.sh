@@ -146,7 +146,7 @@ else
   "$MYSQL_EXE" -u"$DB_USER" -p"$DB_PASS" --default-character-set=utf8mb4 \
     < "$SQL_DIR/animation_town.sql" 2>/dev/null \
     || fail "创建数据库失败, 请检查 application-dev.properties 的账号密码"
-  for f in animation_town_data.sql town_admin.sql town_friend.sql town_message.sql; do
+  for f in animation_town_data.sql town_admin.sql town_friend.sql town_friend_request.sql town_message.sql town_user_avatar.sql; do
     # town_admin.sql 里没有 USE 语句, 必须显式指定库, 否则会报 "No database selected"
     "$MYSQL_EXE" -u"$DB_USER" -p"$DB_PASS" -D animation_town --default-character-set=utf8mb4 \
       < "$SQL_DIR/$f" 2>/dev/null \
