@@ -16,22 +16,24 @@
     * { box-sizing: border-box; }
     html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden;
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-      background:linear-gradient(160deg,#eaf2ff 0%,#f7f0ff 55%,#ffeaf2 100%); }
+      background:linear-gradient(160deg, var(--bg1,#eaf2ff) 0%, var(--bg2,#f7f0ff) 55%, var(--bg3,#ffeaf2) 100%); }
     #canvas-wrap { width:100vw; height:100vh; }
     canvas { display:block; }
     .header { position:absolute; top:24px; left:28px; z-index:10; pointer-events:none; }
-    .header h1 { margin:0; font-size:22px; font-weight:700; color:#2b3a55; letter-spacing:.5px; }
-    .header p { margin:6px 0 0; font-size:13px; color:#6b7893; }
+    .header h1 { margin:0; font-size:22px; font-weight:700; letter-spacing:.5px;
+      color:var(--fg,#2b3a55); text-shadow:0 1px 10px rgba(255,255,255,.4); }
+    .header p { margin:6px 0 0; font-size:13px; color:var(--fg2,#6b7893); }
     .hint { position:absolute; top:28px; right:28px; z-index:10; font-size:12px;
-      color:#8794ab; text-align:right; line-height:1.7; pointer-events:none; }
-    .hint b { color:#5a6a88; font-weight:600; }
+      color:var(--fg2,#8794ab); text-align:right; line-height:1.7; pointer-events:none; }
+    .hint b { color:var(--fg,#5a6a88); font-weight:600; }
     .toolbar { position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
-      z-index:10; display:flex; gap:10px; align-items:center;
+      z-index:10; display:flex; gap:9px; align-items:center; flex-wrap:wrap;
+      justify-content:center; max-width:94vw;
       background:rgba(255,255,255,.78); backdrop-filter:blur(12px);
       padding:10px 16px; border-radius:999px; box-shadow:0 8px 28px rgba(60,80,120,.14); }
     .toolbar button { border:none; cursor:pointer; font-size:13px; font-weight:600;
       color:#3a4a68; background:#eef3fb; padding:8px 15px; border-radius:999px;
-      transition:all .18s ease; }
+      transition:all .18s ease; white-space:nowrap; }
     .toolbar button:hover { background:#dfe9fa; color:#1d5fd0; }
     .toolbar button.active { background:#2f7def; color:#fff; }
     .toolbar .sep { width:1px; height:20px; background:#d5deec; }
@@ -42,9 +44,11 @@
 <body>
   <div class="header">
     <h1>🏰 动画小镇 · 3D 交互查看器</h1>
-    <p> residents 已入住 · 拖动旋转 · 滚轮缩放</p>
+    <p>🌸 WASD 操控小人漫步 · 花瓣飞舞 · 全岛街灯点亮 · 拖动旋转</p>
   </div>
   <div class="hint">
+    <b>WASD / 方向键</b> 操控人物<br>
+    <b>空格</b> 跳跃<br>
     <b>鼠标左键拖动</b> 旋转<br>
     <b>滚轮</b> 缩放<br>
     <b>右键拖动</b> 平移
@@ -57,6 +61,11 @@
     <div class="sep"></div>
     <button id="btnFront">正面</button>
     <button id="btnTop">俯视</button>
+    <div class="sep"></div>
+    <button id="btnWalk" class="active">🚶 散步</button>
+    <button id="btnEffects" class="active">✨ 特效</button>
+    <button id="btnLights" class="active">💡 灯光</button>
+    <button id="btnNight">🌙 夜景</button>
   </div>
 
   <script type="module">
@@ -66,33 +75,40 @@
 
     const wrap = document.getElementById('canvas-wrap');
     const loading = document.getElementById('loading');
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => params.has(k) ? parseFloat(params.get(k)) : d;
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.01, 100);
-    camera.position.set(0, 1.1, 2.4);
+    camera.position.set(2.2, 2.1, 2.6);
 
     const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.14;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     wrap.appendChild(renderer.domElement);
 
+    // ===== 相机与旋转 =====
+    // 修正：限制俯仰角，旋转时相机始终留在小岛上方，不会再翻到云层底面。
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 1.0;
-    controls.minDistance = 0.8;
-    controls.maxDistance = 8;
-    controls.target.set(0, 0, 0);
+    controls.autoRotate = !params.has('norot');
+    controls.autoRotateSpeed = 0.6;          // 放慢，方便看清正面
+    controls.minDistance = 1.2;
+    controls.maxDistance = 7;
+    controls.minPolarAngle = 0.35;           // 约 20°，不到正上方
+    controls.maxPolarAngle = 1.32;           // 约 76°，绝不翻到底面
+    controls.target.set(0, 0.40, 0);
 
-    // 灯光
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xd9d0f0, 2.2));
-    const key = new THREE.DirectionalLight(0xfff3e0, 2.4);
+    // 基础光照
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xd9d0f0, 2.1);
+    scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xfff3e0, 2.3);
     key.position.set(3, 5, 4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048,2048);
@@ -104,76 +120,281 @@
     fill.position.set(-4, 2, -3);
     scene.add(fill);
 
-    const params = new URLSearchParams(location.search);
-    const num = (k, d) => params.has(k) ? parseFloat(params.get(k)) : d;
-
     const loader = new GLTFLoader();
     function loadGLB(url) {
       return new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
     }
 
-    // 图生3D 模型是 Z-up（Blender 风格），转成 three.js 的 Y-up
-    function upright(obj) {
-      const wrapper = new THREE.Group();
-      wrapper.add(obj);
-      obj.rotation.x = -Math.PI/2;
-      wrapper.updateMatrixWorld(true);
-      return wrapper;
+    // ===== 关键修正：不要再旋转模型 =====
+    // 两个 GLB 的根节点都自带 +90° 绕 X 的旋转（四元数 0.7071,0,0,0.7071），
+    // GLTFLoader 加载后已经是 Y-up 的平放小岛。旧代码额外做了 rotation.x=-PI/2，
+    // 把小岛转回成竖立的圆盘 —— 这正是「旋转时看不到正面」的根本原因。
+    function wrapModel(obj) {
+      const g = new THREE.Group();
+      g.add(obj);
+      g.updateMatrixWorld(true);
+      return g;
     }
 
     function normalize(obj, targetMax) {
       obj.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(obj);
       const size = new THREE.Vector3(); box.getSize(size);
-      const maxDim = Math.max(size.x, size.y, size.z);
-      const s = targetMax / maxDim;
+      const s = targetMax / Math.max(size.x, size.y, size.z);
       obj.scale.multiplyScalar(s);
       obj.updateMatrixWorld(true);
       const box2 = new THREE.Box3().setFromObject(obj);
       const center = new THREE.Vector3(); box2.getCenter(center);
-      // 水平居中，垂直方向保留（让底部贴 y=0）
       obj.position.x -= center.x;
       obj.position.z -= center.z;
       obj.position.y -= box2.min.y;
       obj.updateMatrixWorld(true);
-      const box3 = new THREE.Box3().setFromObject(obj);
-      return { box: box3, size: new THREE.Vector3().subVectors(box3.max, box3.min) };
+      return new THREE.Box3().setFromObject(obj);
     }
 
-    let TOWN_TOP = 0.4;
+    // ===== 特效：花瓣 + 萤火虫 =====
+    let petals, fireflies, effectsOn = true;
+    const PETAL_COUNT = 90, FIREFLY_COUNT = 46;
+    const petalState = [], fireflyState = [];
+
+    function buildEffects() {
+      const pGeo = new THREE.BufferGeometry();
+      const pPos = new Float32Array(PETAL_COUNT*3);
+      const pColor = new Float32Array(PETAL_COUNT*3);
+      const palette = [0xffb7d5, 0xffc9dd, 0xffd9e8, 0xffa8cc, 0xfff0f5];
+      for (let i=0;i<PETAL_COUNT;i++) {
+        const st = { x:(Math.random()-0.5)*2.6, z:(Math.random()-0.5)*2.4,
+          y:Math.random()*1.4+0.2, speed:0.06+Math.random()*0.10,
+          phase:Math.random()*Math.PI*2, sway:0.10+Math.random()*0.18 };
+        petalState.push(st);
+        pPos[i*3]=st.x; pPos[i*3+1]=st.y; pPos[i*3+2]=st.z;
+        const c = new THREE.Color(palette[i%palette.length]);
+        pColor[i*3]=c.r; pColor[i*3+1]=c.g; pColor[i*3+2]=c.b;
+      }
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+      pGeo.setAttribute('color', new THREE.BufferAttribute(pColor,3));
+      petals = new THREE.Points(pGeo, new THREE.PointsMaterial({
+        size:0.028, vertexColors:true, transparent:true, opacity:0.9,
+        depthWrite:false, sizeAttenuation:true, blending:THREE.NormalBlending }));
+      scene.add(petals);
+
+      const fGeo = new THREE.BufferGeometry();
+      const fPos = new Float32Array(FIREFLY_COUNT*3);
+      const fColor = new Float32Array(FIREFLY_COUNT*3);
+      for (let i=0;i<FIREFLY_COUNT;i++) {
+        const st = { cx:(Math.random()-0.5)*2.0, cz:(Math.random()-0.5)*1.8,
+          baseY:0.62+Math.random()*0.62, rx:0.08+Math.random()*0.22,
+          rz:0.08+Math.random()*0.22, sx:0.15+Math.random()*0.5,
+          sz:0.15+Math.random()*0.5, phase:Math.random()*Math.PI*2 };
+        fireflyState.push(st);
+        fPos[i*3]=st.cx; fPos[i*3+1]=st.baseY; fPos[i*3+2]=st.cz;
+        const c = new THREE.Color(0xffe9a0);
+        fColor[i*3]=c.r; fColor[i*3+1]=c.g; fColor[i*3+2]=c.b;
+      }
+      fGeo.setAttribute('position', new THREE.BufferAttribute(fPos,3));
+      fGeo.setAttribute('color', new THREE.BufferAttribute(fColor,3));
+      fireflies = new THREE.Points(fGeo, new THREE.PointsMaterial({
+        size:0.022, vertexColors:true, transparent:true, opacity:0.95,
+        depthWrite:false, sizeAttenuation:true, blending:THREE.AdditiveBlending }));
+      scene.add(fireflies);
+    }
+
+    function updateEffects(t, dt, night) {
+      if (!effectsOn) return;
+      const pp = petals.geometry.attributes.position;
+      for (let i=0;i<PETAL_COUNT;i++) {
+        const st = petalState[i];
+        st.y -= st.speed*dt;
+        if (st.y < 0.05) { st.y = 1.5+Math.random()*0.3; st.x=(Math.random()-0.5)*2.6; st.z=(Math.random()-0.5)*2.4; }
+        pp.setXYZ(i, st.x+Math.sin(t*0.8+st.phase)*st.sway, st.y,
+                     st.z+Math.cos(t*0.6+st.phase)*st.sway*0.6);
+      }
+      pp.needsUpdate = true;
+      const fp = fireflies.geometry.attributes.position;
+      const fc = fireflies.geometry.attributes.color;
+      for (let i=0;i<FIREFLY_COUNT;i++) {
+        const st = fireflyState[i];
+        fp.setXYZ(i, st.cx+Math.sin(t*st.sx+st.phase)*st.rx,
+                     st.baseY+Math.sin(t*0.9+st.phase)*0.08,
+                     st.cz+Math.cos(t*st.sz+st.phase*1.3)*st.rz);
+        const b = (0.45+night*0.4) + 0.35*(0.5+0.5*Math.sin(t*2.2+st.phase));
+        fc.setXYZ(i, 1.0*b, 0.91*b, 0.63*b);
+      }
+      fp.needsUpdate = true; fc.needsUpdate = true;
+      fireflies.material.opacity = 0.55 + night*0.45;
+    }
+
+    // ===== 小镇灯光系统：街灯 + 窗户暖光 + 夜景 =====
+    let lampGroup, windowGlow, lightsOn = true;
+    const lamps = [];
+    // [x, z, 是否带真实点光源]：外圈 8 盏均匀 360°，内圈 4 盏补光，覆盖整个小岛
+    const LAMP_POS = [];
+    for (let i=0;i<8;i++) {
+      const a = i*Math.PI/4;
+      LAMP_POS.push([Math.cos(a)*0.78, Math.sin(a)*0.78, 1]);
+    }
+    for (let i=0;i<4;i++) {
+      const a = Math.PI/4 + i*Math.PI/2;
+      LAMP_POS.push([Math.cos(a)*0.36, Math.sin(a)*0.36, 0]);
+    }
+
+    function glowTexture() {
+      const c = document.createElement('canvas'); c.width=c.height=128;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(64,64,0,64,64,64);
+      g.addColorStop(0,    'rgba(255,246,214,1)');
+      g.addColorStop(0.18, 'rgba(255,224,150,0.75)');
+      g.addColorStop(0.45, 'rgba(255,190,110,0.28)');
+      g.addColorStop(1,    'rgba(255,170,90,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,128,128);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function buildLights() {
+      lampGroup = new THREE.Group();
+      const glowTex = glowTexture();
+      const poleGeo = new THREE.CylinderGeometry(0.008, 0.013, 0.13, 8);
+      const poleMat = new THREE.MeshStandardMaterial({ color:0x8a7660, roughness:0.85 });
+      const bulbGeo = new THREE.SphereGeometry(0.026, 12, 10);
+      const y = GROUND_Y + 0.02;
+
+      LAMP_POS.forEach(([x,z,hasPL], i) => {
+        const pole = new THREE.Mesh(poleGeo, poleMat);
+        pole.position.set(x, y+0.065, z);
+        lampGroup.add(pole);
+
+        const bulb = new THREE.Mesh(bulbGeo, new THREE.MeshBasicMaterial({ color:0xffe4a0 }));
+        bulb.position.set(x, y+0.14, z);
+        lampGroup.add(bulb);
+
+        const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+          map:glowTex, color:0xffd58a, transparent:true, opacity:0.9,
+          blending:THREE.AdditiveBlending, depthWrite:false }));
+        halo.position.set(x, y+0.14, z);
+        halo.scale.setScalar(0.27);
+        lampGroup.add(halo);
+
+        // 外圈 8 盏全部带真实点光源，均匀照亮整个小岛（原先只有左半边亮）
+        let pl = null;
+        if (hasPL) {
+          pl = new THREE.PointLight(0xffc978, 0, 1.7, 2);
+          pl.position.set(x, y+0.16, z);
+          lampGroup.add(pl);
+        }
+        lamps.push({ bulb, halo, pl, phase:i*1.7, base:1.0 });
+      });
+
+      // 建筑窗户透出的暖光点
+      const N = 150;
+      const wg = new THREE.BufferGeometry();
+      const wp = new Float32Array(N*3), wc = new Float32Array(N*3);
+      for (let i=0;i<N;i++) {
+        const a = Math.random()*Math.PI*2, r = 0.12+Math.random()*0.84;
+        wp[i*3] = Math.cos(a)*r;
+        wp[i*3+1] = GROUND_Y + 0.07 + Math.random()*0.30;
+        wp[i*3+2] = Math.sin(a)*r;
+        const c = new THREE.Color(Math.random()>0.25 ? 0xffd58a : 0xffb9a0);
+        wc[i*3]=c.r; wc[i*3+1]=c.g; wc[i*3+2]=c.b;
+      }
+      wg.setAttribute('position', new THREE.BufferAttribute(wp,3));
+      wg.setAttribute('color', new THREE.BufferAttribute(wc,3));
+      windowGlow = new THREE.Points(wg, new THREE.PointsMaterial({
+        size:0.026, vertexColors:true, transparent:true, opacity:0,
+        depthWrite:false, blending:THREE.AdditiveBlending }));
+      lampGroup.add(windowGlow);
+
+      // 岛中心柔和氛围光
+      const centerLight = new THREE.PointLight(0xffd9a0, 0, 2.4, 2);
+      centerLight.position.set(0, GROUND_Y+0.35, 0);
+      lampGroup.add(centerLight);
+      lamps.push({ bulb:null, halo:null, pl:centerLight, phase:0, base:0.55, center:true });
+
+      scene.add(lampGroup);
+    }
+
+    function updateLights(t, night) {
+      if (!lampGroup) return;
+      lampGroup.visible = lightsOn;
+      if (!lightsOn) return;
+      const bright = 0.18 + night*0.82;   // 白天微亮，入夜全亮
+      for (const L of lamps) {
+        const flick = 0.93 + 0.07*Math.sin(t*3.1+L.phase);
+        const b = bright * flick * L.base;
+        if (L.pl) L.pl.intensity = (L.center ? 1.0 : 1.35) * b;
+        if (L.bulb) L.bulb.material.color.setRGB(
+          0.55+0.45*b, 0.42+0.40*b, 0.22+0.30*b);
+        if (L.halo) {
+          L.halo.material.opacity = 0.14 + 0.62*b;
+          L.halo.scale.setScalar(0.20 + 0.12*b);
+        }
+      }
+      windowGlow.material.opacity = 0.10 + 0.80*night;
+    }
+
+    // 天空背景随昼夜平滑变化（CSS 变量，节流更新）
+    const DAY_BG   = [[234,242,255],[247,240,255],[255,234,242]];
+    const NIGHT_BG = [[ 96,108,160],[126,102,158],[158,104,142]];
+    let lastSky = -1;
+    function applySky(night) {
+      if (Math.abs(night-lastSky) < 0.015) return;
+      lastSky = night;
+      const s = document.documentElement.style;
+      for (let i=0;i<3;i++) {
+        const c = DAY_BG[i].map((v,k)=>Math.round(v+(NIGHT_BG[i][k]-v)*night));
+        s.setProperty('--bg'+(i+1), `rgb(${c[0]},${c[1]},${c[2]})`);
+      }
+      s.setProperty('--fg',  night>0.45 ? '#f4f6ff' : '#2b3a55');
+      s.setProperty('--fg2', night>0.45 ? '#dfe4f5' : '#6b7893');
+    }
+
+    // ===== 主构建 =====
+    // 实测（正确 Y-up 坐标）：归一化后小岛 X/Z 约 ±1.1，地面平台 y≈0.391，
+    // 建筑顶 y≈0.83。人物脚底贴 0.391 才是站在中间道路上。
+    const GROUND_Y = num('y', 0.391);
+    const baseX = num('x', 0);
+    const baseZ = num('z', 0);
+    const baseRy = num('ry', 0);
+    const walkR = num('wr', 0.09);
+    let pivot, walkOn = true, keyControl = false;
+    const charPos = { x: baseX, z: baseZ };
+    let walkCenter = { x: baseX, z: baseZ };
+    let jumpY = 0, jumpV = 0, charFacing = baseRy;
+    let nightMode = params.has('night');          // URL 带 ?night 可直接以夜景打开
+    let nightSmooth = nightMode ? 1 : 0;
+    const clock = new THREE.Clock();
+
     async function build() {
       const [townGLB, chibiGLB] = await Promise.all([
         loadGLB('./animation_town_3d.glb'),
         loadGLB('./chibi_duo.glb')
       ]);
 
-      // ---- 小镇：立起来归一化到 2.2，底部贴 y=0 ----
-      const town = upright(townGLB);
-      const t = normalize(town, 2.2);
-      TOWN_TOP = t.box.max.y;
+      // 小镇：保持 GLB 自带的 Y-up 朝向，归一化到 2.2，底部贴 y=0
+      const town = wrapModel(townGLB);
+      normalize(town, 2.2);
       town.traverse(o => { if (o.isMesh) { o.castShadow=true; o.receiveShadow=true; } });
       scene.add(town);
 
-      // ---- 小人：立起来归一化，底部贴 y=0 ----
-      const chibiWrap = upright(chibiGLB);
-      const c = normalize(chibiWrap, 1.0);
-      const pivot = new THREE.Group();
+      // 小人：同样保持原朝向，底部贴 y=0，放到道路中央
+      const chibiWrap = wrapModel(chibiGLB);
+      normalize(chibiWrap, 1.0);
+      pivot = new THREE.Group();
       pivot.add(chibiWrap);
-      const s = num('s', 0.72);
-      pivot.scale.setScalar(s);
-      // chibiWrap 已归一化到底部 y=0，故脚底世界 y = pivot.position.y
-      // 放到小镇顶面（道路平面）
-      const footY = TOWN_TOP - 0.01;
-      pivot.position.set(num('x', 0.0), num('y', footY), num('z', 0.05));
-      pivot.rotation.y = num('ry', 0);
-      chibiWrap.traverse(o => { if (o.isMesh) { o.castShadow=true; } });
+      const cs = num('s', 0.24);       // 再缩小：人物高约 0.20，约为建筑高度的一半
+      pivot.scale.setScalar(cs);
+      pivot.position.set(baseX, GROUND_Y, baseZ);
+      pivot.rotation.y = baseRy;
+      chibiWrap.traverse(o => { if (o.isMesh) o.castShadow = true; });
       scene.add(pivot);
       window.__pivot = pivot;
-      console.log('TOWN_TOP=', TOWN_TOP.toFixed(3), 'chibi size=', c.size.toArray().map(v=>v.toFixed(2)), 'footY=', footY.toFixed(3));
 
+      buildEffects();
+      buildLights();
       loading.style.display='none';
-      camera.position.set(num('cx',0), num('cy',1.3), num('cz',2.8));
-      controls.target.set(0, 0.35, 0);
+      camera.position.set(num('cx',2.2), num('cy',2.1), num('cz',2.6));
+      controls.target.set(0, 0.40, 0);
       controls.update();
     }
 
@@ -182,20 +403,73 @@
       console.error(e);
     });
 
+    // ===== 交互 =====
+    const FRONT = { pos:[2.2,2.1,2.6], tgt:[0,0.40,0] };
+    const TOP   = { pos:[0.9,3.2,1.1], tgt:[0,0.35,0] };
+    function goTo(v) {
+      camera.position.set(...v.pos);
+      controls.target.set(...v.tgt);
+      controls.update();
+    }
+
     const btnRotate = document.getElementById('btnRotate');
     btnRotate.addEventListener('click', () => {
       controls.autoRotate = !controls.autoRotate;
       btnRotate.textContent = controls.autoRotate ? '⏸ 暂停旋转' : '▶ 自动旋转';
       btnRotate.classList.toggle('active', controls.autoRotate);
     });
-    document.getElementById('btnReset').addEventListener('click', () => {
-      camera.position.set(0,1.0,2.6); controls.target.set(0,0.15,0); controls.update();
+    document.getElementById('btnReset').addEventListener('click', () => goTo(FRONT));
+    document.getElementById('btnFront').addEventListener('click', () => goTo(FRONT));
+    document.getElementById('btnTop').addEventListener('click', () => goTo(TOP));
+
+    const btnWalk = document.getElementById('btnWalk');
+    btnWalk.addEventListener('click', () => {
+      // 点「散步」回到自动漫步；以当前位置为中心，不瞬移
+      walkOn = !walkOn;
+      keyControl = !walkOn;
+      walkCenter = { x: charPos.x, z: charPos.z };
+      btnWalk.classList.toggle('active', walkOn);
     });
-    document.getElementById('btnFront').addEventListener('click', () => {
-      camera.position.set(0,0.6,2.8); controls.target.set(0,0.15,0); controls.update();
+
+    // ===== 键盘操控：WASD / 方向键移动（相对相机），空格跳跃 =====
+    const MOVE_KEYS = ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '];
+    const keys = Object.create(null);
+    function enterKeyMode() {
+      if (keyControl) return;
+      keyControl = true; walkOn = false;
+      walkCenter = { x: charPos.x, z: charPos.z };
+      btnWalk.classList.remove('active');
+    }
+    addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      if (!MOVE_KEYS.includes(k)) return;
+      e.preventDefault();
+      if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
+      keys[k] = true;
+      enterKeyMode();
     });
-    document.getElementById('btnTop').addEventListener('click', () => {
-      camera.position.set(0,2.8,0.9); controls.target.set(0,0.1,0); controls.update();
+    addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+    addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+    const btnEffects = document.getElementById('btnEffects');
+    btnEffects.addEventListener('click', () => {
+      effectsOn = !effectsOn;
+      btnEffects.classList.toggle('active', effectsOn);
+      if (petals) petals.visible = effectsOn;
+      if (fireflies) fireflies.visible = effectsOn;
+    });
+    const btnLights = document.getElementById('btnLights');
+    btnLights.addEventListener('click', () => {
+      lightsOn = !lightsOn;
+      btnLights.classList.toggle('active', lightsOn);
+      if (lampGroup) lampGroup.visible = lightsOn;
+    });
+    const btnNight = document.getElementById('btnNight');
+    btnNight.textContent = nightMode ? '☀️ 白天' : '🌙 夜景';
+    btnNight.classList.toggle('active', nightMode);
+    btnNight.addEventListener('click', () => {
+      nightMode = !nightMode;
+      btnNight.classList.toggle('active', nightMode);
+      btnNight.textContent = nightMode ? '☀️ 白天' : '🌙 夜景';
     });
 
     addEventListener('resize', () => {
@@ -204,8 +478,66 @@
       renderer.setSize(innerWidth, innerHeight);
     });
 
+    // ===== 动画循环 =====
     function animate() {
       requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const t = clock.elapsedTime;
+
+      if (pivot) {
+        let ml = 0;
+        if (walkOn) {
+          charPos.x = walkCenter.x + Math.sin(t*0.35)*walkR;
+          charPos.z = walkCenter.z + Math.sin(t*0.22)*walkR*0.6;
+          charFacing = baseRy + Math.sin(t*0.35)*0.35;
+          jumpY = 0; jumpV = 0;
+        } else {
+          // 方向相对相机：W 永远往画面里走
+          const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+          fwd.y = 0; fwd.normalize();
+          const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0,1,0)).normalize();
+          let mx = 0, mz = 0;
+          if (keys['w']||keys['arrowup'])    { mx += fwd.x;   mz += fwd.z; }
+          if (keys['s']||keys['arrowdown'])  { mx -= fwd.x;   mz -= fwd.z; }
+          if (keys['d']||keys['arrowright']) { mx += right.x; mz += right.z; }
+          if (keys['a']||keys['arrowleft'])  { mx -= right.x; mz -= right.z; }
+          ml = Math.hypot(mx, mz);
+          if (ml > 0) {
+            const sp = 0.85 * dt / ml;
+            charPos.x += mx*sp; charPos.z += mz*sp;
+            const r = Math.hypot(charPos.x, charPos.z);   // 限制在岛内，别走出去
+            if (r > 0.85) { charPos.x *= 0.85/r; charPos.z *= 0.85/r; }
+            charFacing = Math.atan2(mx, mz) + baseRy;
+          }
+          if (keys[' '] && jumpY === 0) jumpV = 1.05;     // 空格跳跃
+          jumpV -= 3.2*dt; jumpY += jumpV*dt;
+          if (jumpY < 0) { jumpY = 0; jumpV = 0; }
+        }
+        const bob = walkOn ? Math.sin(t*3.2)*0.006
+                  : (ml > 0 ? Math.sin(t*11)*0.012 : Math.sin(t*2.4)*0.004);
+        pivot.position.set(charPos.x, GROUND_Y + jumpY + bob, charPos.z);
+        let d = charFacing - pivot.rotation.y;            // 朝向平滑过渡
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        pivot.rotation.y += d * Math.min(1, dt*10);
+        pivot.rotation.z = Math.sin(t*2.1)*0.02;
+      }
+
+      // 昼夜：cos 让开场是明亮白天，随后缓缓入夜，街灯逐渐亮起
+      const day = 0.5 + 0.5*Math.cos(t*0.10);
+      const targetNight = nightMode ? 1 : 1-day;
+      nightSmooth += (targetNight-nightSmooth) * Math.min(1, dt*1.8);
+      const night = nightSmooth;
+
+      key.intensity = 2.3 - night*0.9;
+      key.color.setHSL(0.09 - day*0.03, 0.55, 0.72);
+      hemi.intensity = 2.1 - night*0.7;
+      fill.intensity = 0.8 + night*0.35;
+      renderer.toneMappingExposure = 1.14 - night*0.10;
+
+      updateEffects(t, dt, night);
+      updateLights(t, night);
+      applySky(night);
+
       controls.update();
       renderer.render(scene, camera);
     }
