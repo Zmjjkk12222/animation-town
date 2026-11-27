@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>奶蛙乐园：午夜奶片 · Milk Frog Park</title>
+<meta name="description" content="第一人称温馨惊悚迷宫游戏：在废弃的奶蛙乐园里取回八片奶片，别被它们找到。" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230b0809'/%3E%3Ccircle cx='32' cy='34' r='20' fill='%23d6d46c'/%3E%3Ccircle cx='24' cy='29' r='7' fill='%23f7f4e6'/%3E%3Ccircle cx='40' cy='29' r='7' fill='%23f7f4e6'/%3E%3Ccircle cx='24' cy='29' r='2.2' fill='%23111'/%3E%3Ccircle cx='40' cy='29' r='2.2' fill='%23111'/%3E%3Cpath d='M22 41 Q32 49 42 41' stroke='%2340151b' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./styles.css" />
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="scene" aria-hidden="true"></div>
+
+<div id="fx">
+  <div class="vignette"></div>
+  <div id="pickup-flash" class="pickup-flash"></div>
+  <div id="danger-tint"></div>
+  <div class="grain"></div>
+  <div class="scanlines"></div>
+</div>
+
+<!-- ========== HUD ========== -->
+<div id="hud" class="hidden">
+  <header class="hud-top">
+    <div class="objective-card">
+      <div class="hud-kicker">第 1 夜 · 奶蛙乐园</div>
+      <div class="hud-objective" id="objective-text">取回你的 24 片奶片</div>
+      <div class="candy-progress" id="candy-progress" aria-label="奶片进度"></div>
+    </div>
+    <div class="hud-top-right">
+      <span class="hud-hint-text">ESC 暂停 · M 静音</span>
+    </div>
+  </header>
+
+  <aside class="san-wrap" aria-label="意识值">
+    <div class="san-head"><span>意识值 · SAN</span><strong id="san-value">100%</strong></div>
+    <div class="san-track"><div id="san-fill"></div></div>
+    <div id="milk-status" class="milk-status">龙奶 · 意识值 50% 时解锁</div>
+  </aside>
+  <aside id="minimap-wrap" class="minimap-wrap hidden">
+    <div class="map-head"><span>乐园地图</span><em>1987 · F1</em></div>
+    <canvas id="minimap" width="260" height="196"></canvas>
+    <div class="map-legend"><i class="dot player"></i>你 <i class="dot frog"></i>奶蛙 <i class="dot exit"></i>出口</div>
+  </aside>
+
+  <div class="hud-bottom">
+    <div id="stamina-wrap" class="stamina-wrap hidden">
+      <span class="stamina-label">糖 分</span>
+      <div class="stamina-track"><div id="stamina-fill"></div></div>
+      <span class="stamina-key">SHIFT</span>
+    </div>
+    <div id="crosshair" aria-hidden="true"></div>
+    <div class="items" id="items">
+      <div class="item locked" id="item-map"><span class="item-icon">▤</span><span class="item-name">地图</span><span class="item-lock">未解锁</span></div>
+      <div class="item locked" id="item-speed"><span class="item-icon">ϟ</span><span class="item-name">加速</span><span class="item-lock">未解锁</span></div>
+    </div>
+  </div>
+
+  <div id="subtitles" class="subtitles" role="status" aria-live="polite">
+    <span class="sub-speaker" id="sub-speaker">奶蛙</span>
+    <span class="sub-text" id="sub-text"></span>
+  </div>
+  <div id="proximity-warning" class="proximity-warning hidden">它 就 在 你 身 后</div>
+  <div id="pointer-hint" class="pointer-hint hidden">点击画面锁定鼠标</div>
+  <div id="interact-prompt" class="interact-prompt hidden"></div>
+  <div id="toasts" class="toasts"></div>
+</div>
+
+<!-- ========== 主菜单 ========== -->
+<div id="menu" class="screen menu">
+  <div class="menu-shade"></div>
+  <div class="menu-grid">
+    <div class="menu-left">
+      <div class="menu-kicker"><span class="rule"></span>一个关于奶片与失去的夜晚<span class="rule"></span></div>
+      <h1 class="game-title" aria-label="奶蛙乐园">
+        <span class="title-cn">奶蛙乐园</span>
+        <span class="title-en">MILK FROG PARK</span>
+      </h1>
+      <div class="title-rule"><span></span><em>午夜奶片 · MIDNIGHT MILK CANDY</em><span></span></div>
+      <p class="tagline">吃了奶片，就能变成奶龙。</p>
+      <nav class="menu-actions">
+        <button id="btn-start" class="btn primary"><span>开始游戏</span><em>START</em></button>
+        <button id="btn-demo" class="btn"><span>演示模式</span><em>DEMO</em></button>
+        <button id="btn-help" class="btn ghost"><span>操作说明</span><em>HOW TO PLAY</em></button>
+      </nav>
+      <div class="menu-audio">
+        <button id="btn-mute" class="mute-btn" title="静音 (M)" aria-label="静音">♪</button>
+        <input id="volume" class="volume" type="range" min="0" max="100" value="70" aria-label="音量" />
+        <span class="audio-hint">建议佩戴耳机 · 含惊吓音效</span>
+      </div>
+      <div class="menu-sens">
+        <span class="sens-label">画面灵敏度</span>
+        <input id="sensitivity" class="volume" type="range" min="20" max="250" value="100" aria-label="画面灵敏度" />
+        <span class="sens-value" id="sensitivity-value">100%</span>
+      </div>
+    </div>
+    <div class="menu-right">
+      <div class="menu-quote">
+        <p>“我是奶龙！<br />我才是奶龙！”</p>
+        <span>—— 走廊，1999.06.01</span>
+      </div>
+    </div>
+  </div>
+  <footer class="menu-footer">
+    <span>WASD 移动 · 鼠标 视角 · 空格 跳跃 · SHIFT 加速 · E 互动 · V 视角 · M 静音 · ESC 暂停</span>
+    <span class="menu-build">v1.0 · 单关试玩 · 大湾区大学 W05</span>
+  </footer>
+  <button id="btn-internal" class="menu-internal" type="button" title="无怪物体检模式（场景排查用）">内部通道 · INTERNAL</button>
+</div>
+
+<!-- ========== 剧情 ========== -->
+<div id="story" class="screen story hidden">
+  <div class="letterbox top"></div>
+  <div class="letterbox bottom"></div>
+  <div class="story-chapter"><span id="story-chapter">1999 · 奶蛙乐园</span></div>
+  <div class="story-block">
+    <div class="story-line" id="story-line"></div>
+    <div class="story-caption" id="story-caption"></div>
+  </div>
+  <button class="story-skip" id="story-skip">跳过 · SKIP <span>任意键</span></button>
+  <div class="story-timeline"><div id="story-progress"></div></div>
+</div>
+
+<!-- ========== 点击开始游玩 ========== -->
+<div id="ready" class="screen ready hidden">
+  <div class="ready-inner">
+    <div class="ready-kicker">第 1 夜 · 22:07</div>
+    <div class="ready-title">取回你的奶片</div>
+    <p>先找到 <b>8 片</b>，乐园地图会亮起；再找到 <b>8 片</b>，你就能跑得更快。<br />凑齐 <b>24 片</b>，从安全出口离开。</p>
+    <button id="btn-enter" class="btn primary"><span>点击进入</span><em>CLICK TO PLAY</em></button>
+    <div class="ready-note">鼠标将被锁定 · 按 ESC 暂停</div>
+  </div>
+</div>
+
+<!-- ========== 暂停 ========== -->
+<div id="pause" class="screen modal hidden">
+  <div class="modal-card">
+    <div class="modal-kicker">PAUSED</div>
+    <h2>暂停</h2>
+    <p class="modal-sub">乐园还在等你。</p>
+    <div class="modal-actions">
+      <button id="btn-resume" class="btn primary"><span>继续游戏</span><em>RESUME</em></button>
+      <button id="btn-restart" class="btn"><span>重新开始</span><em>RESTART</em></button>
+      <button id="btn-menu" class="btn ghost"><span>返回主菜单</span><em>MENU</em></button>
+    </div>
+    <div class="modal-audio">
+      <button id="btn-pause-mute" class="mute-btn">♪</button>
+      <input id="pause-volume" class="volume" type="range" min="0" max="100" value="70" aria-label="音量" />
+    </div>
+    <div class="modal-audio sens">
+      <span class="sens-label">画面灵敏度</span>
+      <input id="pause-sensitivity" class="volume" type="range" min="20" max="250" value="100" aria-label="画面灵敏度" />
+      <span class="sens-value" id="pause-sensitivity-value">100%</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 操作说明 ========== -->
+<div id="help" class="screen modal hidden">
+  <div class="modal-card wide">
+    <div class="modal-kicker">HOW TO PLAY</div>
+    <h2>操作说明</h2>
+    <div class="help-grid">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>移动</span></div>
+      <div><kbd>鼠标</kbd><span>转动视角</span></div>
+      <div><kbd>SHIFT</kbd><span>加速（解锁后）</span></div>
+      <div><kbd>空格</kbd><span>跳跃</span></div>
+      <div><kbd>E</kbd><span>互动 / 开门</span></div>
+      <div><kbd>V</kbd><span>第一 / 第三人称</span></div>
+      <div><kbd>F</kbd><span>手电筒</span></div>
+      <div><kbd>M</kbd><span>静音</span></div>
+      <div><kbd>ESC</kbd><span>暂停</span></div>
+    </div>
+    <ul class="help-rules">
+      <li>收集 <b>24 片奶片</b>，从安全出口离开，就算活过这一夜。</li>
+      <li>奶蛙会一直跟着你，但追不上正常行走的你。<b>站着不动</b>或<b>被堵死</b>时，它们才会靠近。</li>
+      <li>解锁加速后，按住 <kbd>SHIFT</kbd> 冲刺可以把它们甩开。糖分会自动恢复。</li>
+      <li>意识值会持续下降，越低下降越慢；幻觉期间停止下降，归零即失败。降至 50% 后可寻找龙奶，靠近自动拾取并恢复 20%；每次拾取后需等待 10 秒。</li>
+      <li>听到「我是奶龙！我才是奶龙！」越来越响，说明它离你越来越近。</li>
+    </ul>
+    <button id="btn-help-close" class="btn primary"><span>知道了</span><em>CLOSE</em></button>
+  </div>
+</div>
+
+<!-- ========== 结算 ========== -->
+<div id="win" class="screen result win hidden">
+  <div class="result-vignette"></div>
+  <div class="result-inner">
+    <div class="result-kicker">06:14 · 天亮了</div>
+    <h2>你带走了最后一片奶片。</h2>
+    <p class="result-text">乐园安静下来。推土机明天会来，把蛋糕、蜡笔和歌声一起推平。<br />你回头看了一眼——门厅里，好像还有一个小小的影子在朝你挥手。</p>
+    <div class="result-stats" id="win-stats"></div>
+    <div class="modal-actions">
+      <button id="btn-win-replay" class="btn primary"><span>再玩一次</span><em>REPLAY</em></button>
+      <button id="btn-win-menu" class="btn ghost"><span>返回主菜单</span><em>MENU</em></button>
+    </div>
+  </div>
+</div>
+
+<div id="lose" class="screen result lose hidden">
+  <div class="result-vignette"></div>
+  <div class="result-inner">
+    <div class="result-kicker">22:44 · 你停下了</div>
+    <h2 id="lose-title">你被找到了。</h2>
+    <p id="lose-text" class="result-text">它们围过来，很有礼貌地给你让出一个位置。<br />蛋糕上的蜡烛又亮了一根。<br /><b>“欢迎新朋友。”</b></p>
+    <div class="modal-actions">
+      <button id="btn-lose-retry" class="btn primary"><span>再试一次</span><em>RETRY</em></button>
+      <button id="btn-lose-menu" class="btn ghost"><span>返回主菜单</span><em>MENU</em></button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 演示模式横幅 ========== -->
+<div id="demo-banner" class="demo-banner hidden">
+  <span class="rec-dot"></span>
+  <b>演示模式 · DEMO</b>
+  <span class="demo-hint">自动演示真实游戏 · 按 ESC 退出</span>
+</div>
+
+<!-- ========== 加载 ========== -->
+<div id="loading" class="screen loading">
+  <div class="loading-inner">
+    <div class="loading-kicker">MILK FROG PARK</div>
+    <div class="loading-title">奶蛙乐园</div>
+    <div class="loading-bar"><div id="loading-fill"></div></div>
+    <div class="loading-status" id="loading-status">正在布置生日会……</div>
+    <div class="loading-tip">提示：如果听到歌声，请不要回头。</div>
+  </div>
+</div>
+
+<!-- ========== 内部通道：无怪物体检模式 ========== -->
+<div id="inspect" class="inspect hidden">
+  <header class="inspect-head">
+    <b>内部通道</b>
+    <span>INTERNAL · NO MONSTERS</span>
+    <button type="button" class="inspect-x" data-act="exit">退出</button>
+  </header>
+  <pre id="inspect-stats" class="inspect-stats"></pre>
+  <div class="inspect-keys">
+    <span><kbd>WASD</kbd>飞行</span>
+    <span><kbd>空格</kbd><kbd>C</kbd>升降</span>
+    <span><kbd>SHIFT</kbd>加速</span>
+    <span><kbd>滚轮</kbd>调速</span>
+    <span><kbd>1-6</kbd>跳房间</span>
+    <span><kbd>R</kbd>重扫</span>
+    <span><kbd>B</kbd>标记</span>
+    <span><kbd>N</kbd>透墙</span>
+    <span><kbd>G</kbd>格网</span>
+    <span><kbd>L</kbd>灯光</span>
+    <span><kbd>H</kbd>面板</span>
+    <span><kbd>ESC</kbd>退出</span>
+  </div>
+  <ul id="inspect-list" class="inspect-list"></ul>
+  <footer class="inspect-footer">
+    <pre id="inspect-foot" class="inspect-foot"></pre>
+    <div class="inspect-act">
+      <button type="button" data-act="scan">重扫 R</button>
+      <button type="button" data-act="walls">透墙 N</button>
+      <button type="button" data-act="info">显示吊挂 I</button>
+    </div>
+  </footer>
+</div>
+<div id="inspect-hint" class="inspect-hint hidden">点击画面锁定鼠标 · 再按 ESC 退出通道</div>
+
+<div id="hallucination" class="hallucination hidden" aria-hidden="true"><img id="hallucination-img" alt="" /><img alt="" /><img alt="" /><img alt="" /><img alt="" /><img alt="" /></div>
+<div id="jumpscare" class="jumpscare hidden" aria-hidden="true"><img id="jumpscare-img" alt="" /></div>
+<div id="fade" class="fade"></div>
+<div id="flash" class="flash"></div>
+
+<noscript><div class="noscript">这个游戏需要启用 JavaScript。</div></noscript>
+<script>
+// file:// 直接双击 index.html 时，ES Module 与音频 fetch 会被浏览器拦截，
+// 表现为停在加载页、或菜单能显示但所有按钮都没反应。这里提前把原因说清楚，
+// 否则玩家只会以为游戏坏了。
+(function () {
+  if (location.protocol !== 'file:') return;
+  function warn() {
+    var status = document.getElementById('loading-status');
+    if (status) {
+      status.innerHTML = '不能用 file:// 直接打开这个页面。<br>' +
+        '请在项目目录运行 <code style="color:#d6d46c">python serve.py 8000</code>，<br>' +
+        '然后访问 <code style="color:#d6d46c">http://127.0.0.1:8000/</code>';
+    }
+    var bar = document.getElementById('loading-fill');
+    if (bar) { bar.style.width = '100%'; bar.style.background = '#a33'; }
+    var tip = document.querySelector('.loading-tip');
+    if (tip) tip.textContent = '浏览器安全策略禁止 file:// 加载 ES Module 与本地音频，这不是游戏本身的问题。';
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', warn);
+  else warn();
+})();
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

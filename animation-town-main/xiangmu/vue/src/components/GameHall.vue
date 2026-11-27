@@ -44,7 +44,8 @@ const games = [
   { key: 'drag-and-drop-game', name: '分分类', en: 'Sort It Out', icon: '🧺', tag: '益智' },
   { key: 'clicker-game', name: '闪电工坊', en: 'Bolt Workshop', icon: '⚡', tag: '休闲' },
   { key: 'game-of-life', name: '生命奥秘', en: 'Game of Life', icon: '🔬', tag: '探索' },
-  { key: 'casino-games', name: '幸运摇摇乐', en: 'Reel Rush', icon: '🎰', tag: '休闲' }
+  { key: 'casino-games', name: '幸运摇摇乐', en: 'Reel Rush', icon: '🎰', tag: '休闲' },
+  { key: 'milk-frog-park', name: '午夜奶片', en: '奶蛙乐园 · 第一人称惊悚迷宫', icon: '👻', tag: '恐怖', dark: true }
 ]
 
 function open(g) { active.value = g }
@@ -56,11 +57,24 @@ function openNetGame() {
   if (g) open(g)
 }
 
+/** 按 key 打开指定游戏（侧边栏「恐怖游戏」等入口） */
+function openByKey(key) {
+  if (!key || key === 'fireice') { openNetGame(); return }
+  const g = games.find((x) => x.key === key)
+  if (g) open(g)
+}
+
 // 两种情况都要处理：
 // 1. 已经停留在大厅 → watch 直接响应
 // 2. 大厅还没挂载（刚切 Tab）→ onMounted 时把请求取走
-watch(gameEntryTick, () => { if (consumeOpenGame()) openNetGame() })
-onMounted(() => { if (consumeOpenGame()) openNetGame() })
+// consumeOpenGame 返回目标游戏 key（联机邀请默认 'fireice'）；无请求返回 null
+function handleEntry() {
+  const key = consumeOpenGame()
+  if (key) openByKey(key)
+}
+watch(gameEntryTick, handleEntry)
+onMounted(handleEntry)
+
 
 // 注意：必须用完整文件名 index.html。
 // Vite dev server 会把 /games/<key>/ 这种尾斜杠目录请求 fallback 到 SPA 首页，
@@ -76,7 +90,7 @@ function iframeUrl(key) { return '/games/' + key + '/index.html' }
 
     <div class="hall-grid">
       <button
-        v-for="g in games" :key="g.key" class="gcard" type="button"
+        v-for="g in games" :key="g.key" class="gcard" :class="{ dark: g.dark }" type="button"
         @click="open(g)"
       >
         <span class="g-tag">{{ g.tag }}</span>
@@ -89,7 +103,7 @@ function iframeUrl(key) { return '/games/' + key + '/index.html' }
 
     <!-- 游戏弹窗 -->
     <div v-if="active" class="gm-mask" @click.self="close">
-      <div class="gm-window">
+      <div class="gm-window" :class="{ dark: active.dark }">
         <div class="gm-head">
           <span class="gm-title">{{ active.icon }} {{ active.name }}</span>
           <button class="gm-close" type="button" @click="close" aria-label="关闭">✕</button>
@@ -151,6 +165,19 @@ function iframeUrl(key) { return '/games/' + key + '/index.html' }
 .g-play {
   margin-top: 8px; font-size: 12px; color: #ff6b81; font-weight: 600;
 }
+/* 恐怖游戏：暗色卡片，和普通益智游戏区分开 */
+.gcard.dark {
+  background: linear-gradient(160deg, #241d33, #17131f);
+  border-color: #3a2f4d;
+}
+.gcard.dark:hover {
+  border-color: #b98cff;
+  box-shadow: 0 8px 22px rgba(120, 70, 200, .35);
+}
+.gcard.dark .g-tag { color: #d9b8ff; background: rgba(185, 140, 255, .18); }
+.gcard.dark .g-name { color: #f2eaff; }
+.gcard.dark .g-en { color: #a89ac0; }
+.gcard.dark .g-play { color: #c79bff; }
 
 /* 弹窗 */
 .gm-mask {
@@ -179,6 +206,16 @@ function iframeUrl(key) { return '/games/' + key + '/index.html' }
 .gm-body { flex: 1; background: #1e1937; display: flex; min-height: 0; }
 .gm-frame { flex: 1; border: none; width: 100%; height: 100%; background: #fff; }
 .gm-body > :deep(div) { flex: 1; }
+/* 恐怖游戏弹窗：深色外壳，配合第一人称迷宫的暗色画面 */
+.gm-window.dark { background: #17131f; }
+.gm-window.dark .gm-head,
+.gm-window.dark .gm-foot { border-color: #332a45; }
+.gm-window.dark .gm-title { color: #f2eaff; }
+.gm-window.dark .gm-close { background: #332a45; color: #d9b8ff; }
+.gm-window.dark .gm-tip { color: #8d7fa8; }
+.gm-window.dark .gm-back { background: linear-gradient(135deg, #7a5cc0, #5b3fa0); }
+/* iframe 内是 pointer-lock 的第一人称游戏：必须允许键盘/焦点，禁掉刷新拖拽 */
+.gm-window.dark .gm-frame { background: #0b0809; }
 .gm-foot {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 14px; border-top: 1px solid #f0eef8;

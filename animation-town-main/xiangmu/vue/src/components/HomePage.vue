@@ -10,13 +10,29 @@ import { getRecommend, getFavorites, addFavorite, removeFavorite } from '../api/
 import { getFriends, searchUsers, applyFriend, getPendingRequests, acceptFriend, declineFriend, removeFriend } from '../api/friend.js'
 import { getUnread } from '../api/message.js'
 import { unreadBy, setUnread, clearUnread } from '../net/realtime.js'
-import { consumeOpenGame, gameEntryTick } from '../composables/gameEntry.js'
+import { consumeOpenGame, gameEntryTick, requestOpenGame } from '../composables/gameEntry.js'
+import { startNaiwa } from '../api/naiwa.js'
 
 const props = defineProps({
   user: { type: Object, default: () => ({}) }
 })
 const emit = defineEmits(['logout', 'go-admin', 'update-user'])
 const { toast } = useToast()
+
+// 召唤奶龙桌宠：调后端启动本地 exe，后端会避免重复启动
+const petStarting = ref(false)
+async function startPet() {
+  if (petStarting.value) return
+  petStarting.value = true
+  try {
+    const info = await startNaiwa()
+    toast(info?.started ? '🐉 奶龙桌宠已启动！' : '🐉 奶龙桌宠已经在运行啦～')
+  } catch (e) {
+    toast(e.message || '桌宠启动失败，请稍后再试～', { type: 'err' })
+  } finally {
+    petStarting.value = false
+  }
+}
 
 const roleLabel = computed(() => (props.user.role === 'parent' ? '家长' : '小朋友'))
 
@@ -316,6 +332,13 @@ watch(gameEntryTick, () => {
   sideOpen.value = false
 })
 
+/** 侧边栏「恐怖游戏」：一键切到游戏乐园并打开奶蛙乐园（第一人称惊悚迷宫） */
+function openHorrorGame() {
+  requestOpenGame('milk-frog-park')
+  if (tab.value !== 'game') { tab.value = 'game'; clearKw() }
+  sideOpen.value = false
+}
+
 // ============================================================
 // 视频播放器（保留原有逻辑）
 // ============================================================
@@ -451,6 +474,13 @@ onMounted(() => { load(); loadHistory(); loadFriends(); loadRequests() })
           <span class="snav-txt">{{ t.label }}</span>
         </button>
 
+        <!-- 恐怖游戏入口：一键启动奶蛙乐园 -->
+        <button class="snav horror-entry" type="button" @click="openHorrorGame">
+          <span class="snav-ico">👻</span>
+          <span class="snav-txt">恐怖游戏</span>
+          <span class="horror-hot">NEW</span>
+        </button>
+
         <!-- 后台管理系统入口 -->
         <button class="snav admin-entry" type="button" @click="emit('go-admin'); sideOpen = false">
           <span class="snav-ico">🛡️</span>
@@ -499,6 +529,13 @@ onMounted(() => { load(); loadHistory(); loadFriends(); loadRequests() })
         </div>
 
         <div class="top-me">
+          <button
+            class="pet-btn" type="button" :disabled="petStarting"
+            title="召唤奶龙桌宠到桌面" @click="startPet"
+          >
+            <span class="pet-btn-ico">🐉</span>
+            <span>{{ petStarting ? '召唤中…' : '召唤桌宠' }}</span>
+          </button>
           <div class="hist-wrap">
             <button
               class="hist-btn" type="button" :class="{ on: histOpen }"
@@ -965,6 +1002,17 @@ onMounted(() => { load(); loadHistory(); loadFriends(); loadRequests() })
   color: #5b7fd6;
 }
 .admin-entry:hover { background: rgba(109, 184, 255, .16); color: #3f66c0; }
+/* 恐怖游戏入口：暗紫色，和普通导航/后台入口区分 */
+.horror-entry {
+  background: linear-gradient(135deg, rgba(60, 40, 95, .10), rgba(120, 70, 190, .06));
+  border: 1px solid rgba(150, 105, 210, .28);
+}
+.horror-entry:hover { background: rgba(150, 105, 210, .20); color: #6b3fb0; }
+.horror-hot {
+  font-size: 9px; font-weight: 800; letter-spacing: .3px;
+  color: #fff; background: linear-gradient(135deg, #a06bff, #7240c0);
+  border-radius: 999px; padding: 1px 6px; flex-shrink: 0;
+}
 
 .side-user {
   display: flex; align-items: center; gap: 8px;
@@ -1019,6 +1067,25 @@ onMounted(() => { load(); loadHistory(); loadFriends(); loadRequests() })
 .s-clear:hover { background: #e0e7ff; color: var(--ink); }
 
 .top-me { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+/* 召唤奶龙桌宠按钮 */
+.pet-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 36px; padding: 0 13px;
+  border: 1px solid rgba(120, 200, 170, .55); border-radius: 999px;
+  background: linear-gradient(135deg, #eafff6, #f0f7ff);
+  color: #2f8f78; font-family: var(--font); font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(90, 190, 150, .14);
+  transition: transform .18s, box-shadow .18s, background .18s;
+}
+.pet-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #d8fbeb, #e4f1ff);
+  box-shadow: 0 7px 18px rgba(90, 190, 150, .26);
+}
+.pet-btn:active:not(:disabled) { transform: translateY(0); }
+.pet-btn:disabled { opacity: .6; cursor: wait; }
+.pet-btn-ico { font-size: 16px; line-height: 1; }
 .top-me-user {
   display: flex; align-items: center; gap: 8px; cursor: pointer;
 }

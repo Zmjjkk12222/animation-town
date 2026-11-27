@@ -15,21 +15,31 @@ import { ref } from 'vue'
 export const gameEntryTick = ref(0)
 
 let pending = false
+/** 指定要打开的游戏 key；为 null 时沿用默认（联机游戏 fireice） */
+let pendingKey = null
 
-/** 请求打开联机游戏（接受邀请成功后调用） */
-export function requestOpenGame() {
+/**
+ * 请求打开游戏。
+ * @param {string|null} key 目标游戏 key（对应 GameHall 的 games 数组）；
+ *                          不传则打开默认的联机游戏 fireice。
+ */
+export function requestOpenGame(key = null) {
   pending = true
+  pendingKey = key
   gameEntryTick.value += 1
 }
 
-/** 取走一次打开请求；没有待处理请求时返回 false */
+/** 取走一次打开请求；返回目标游戏 key（默认 'fireice'），没有待处理请求时返回 null */
 export function consumeOpenGame() {
-  if (!pending) return false
+  if (!pending) return null
   pending = false
-  return true
+  const key = pendingKey || 'fireice'
+  pendingKey = null
+  return key
 }
 
 /** 丢弃待处理请求（例如用户已手动打开游戏，避免重复弹窗） */
 export function dropOpenGame() {
   pending = false
+  pendingKey = null
 }
