@@ -88,12 +88,12 @@ set "RC=!errorlevel!"
 echo.
 if not !RC!==0 (
     echo ==========================================
-    echo   [失败] 后端启动失败 (退出码 !RC!)。
+    echo   [失败] 后端启动失败 ^(退出码 !RC!^)。
     echo   请查看上方报错, 或打开应用日志:
     echo   %BACKEND%log\xx.log
     echo ==========================================
 ) else (
-    echo 后端已停止 (退出码 0)。
+    echo 后端已停止 ^(退出码 0^)。
 )
 goto :finish
 

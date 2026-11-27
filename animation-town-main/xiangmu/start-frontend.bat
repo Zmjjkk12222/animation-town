@@ -19,20 +19,20 @@ echo.
 
 rem ---------- 探测 npm: 优先系统 PATH，其次常见安装位置 ----------
 set "NPM="
-where npm >nul 2>&1 && set "NPM=npm"
+for /f "delims=" %%i in ('where npm.cmd 2^>nul') do if not defined NPM set "NPM=%%i"
 if not defined NPM if exist "C:\Program Files\nodejs\npm.cmd" set "NPM=C:\Program Files\nodejs\npm.cmd"
 if not defined NPM for /d %%d in ("%USERPROFILE%\.workbuddy\binaries\node\versions\*") do (
     if not defined NPM if exist "%%~fd\npm.cmd" set "NPM=%%~fd\npm.cmd"
 )
 if not defined NPM (
-    echo [错误] 未找到 npm! 请安装 Node.js (https://nodejs.org) 后重试。
+    echo [错误] 未找到 npm! 请安装 Node.js ^(https://nodejs.org^) 后重试。
     goto :finish
 )
 echo   使用 npm: %NPM% [OK]
 
 rem ---------- node_modules 缺失时自动安装 ----------
 if not exist "%FRONTEND%\node_modules" (
-    echo   首次运行, 正在安装前端依赖(约 1 分钟)...
+    echo   首次运行, 正在安装前端依赖^(约 1 分钟^)...
     cd /d "%FRONTEND%"
     call "%NPM%" install --registry=https://registry.npmmirror.com --no-audit --no-fund
     if errorlevel 1 (
@@ -62,11 +62,11 @@ set "RC=!errorlevel!"
 echo.
 if not !RC!==0 (
     echo ==========================================
-    echo   [失败] 前端启动失败 (退出码 !RC!)。
+    echo   [失败] 前端启动失败 ^(退出码 !RC!^)。
     echo   请查看上方红色报错。
     echo ==========================================
 ) else (
-    echo 前端已停止 (退出码 0)。
+    echo 前端已停止 ^(退出码 0^)。
 )
 goto :finish
 

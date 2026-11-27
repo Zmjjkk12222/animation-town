@@ -77,7 +77,7 @@ echo        MySQL 正常 [OK]
 rem ---------- 3. 初始化/同步数据库(脚本均幂等, 每次都跑) ----------
 echo  [3/6] 检查数据库 animation_town...
 if not exist "%MYSQL_EXE%" (
-    echo        [警告] 未找到 mysql.exe, 跳过数据库检查(若库已存在不影响启动)
+    echo        [警告] 未找到 mysql.exe, 跳过数据库检查^(若库已存在不影响启动^)
 ) else (
     rem 建库脚本本身含 CREATE DATABASE, 不能带 -D
     "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% --default-character-set=utf8mb4 < "%BACKEND%\src\main\resources\sql\animation_town.sql" 2>nul
@@ -92,7 +92,7 @@ if not exist "%MYSQL_EXE%" (
     )
     "%MYSQL_EXE%" -u%DB_USER% -p%DB_PASS% -D animation_town -e "SELECT 1 FROM town_message LIMIT 1;" >nul 2>&1
     if errorlevel 1 (
-        echo        [错误] 数据库同步失败(town_message 缺失), 请检查 MySQL 账号密码
+        echo        [错误] 数据库同步失败^(town_message 缺失^), 请检查 MySQL 账号密码
         pause
         exit /b 1
     )
@@ -106,9 +106,9 @@ if not errorlevel 1 (
     echo        后端已在运行, 跳过 [OK]
 ) else (
     call :free_port 8081
-    rem 注意: 路径均不含空格, 外层 cmd /k 内不嵌套引号(嵌套引号会被截断)
+    rem 注意: 路径均不含空格, 外层 cmd /k 内不嵌套引号^(嵌套引号会被截断^)
     start "springBootTest-后端" %ROOT%springBootTest\start-backend.bat
-    echo        后端启动中(首次编译约需 30-60 秒)...
+    echo        后端启动中^(首次编译约需 30-60 秒^)...
     set /a tries=0
     :wait_backend
     ping -n 4 127.0.0.1 >nul
@@ -127,20 +127,20 @@ echo  [5/6] 启动前端 Vite (5173)...
 
 rem -- 探测 npm: 优先系统 PATH，其次常见安装位置 --
 set "NPM="
-where npm >nul 2>&1 && set "NPM=npm"
+for /f "delims=" %%i in ('where npm.cmd 2^>nul') do if not defined NPM set "NPM=%%i"
 if not defined NPM if exist "C:\Program Files\nodejs\npm.cmd" set "NPM=C:\Program Files\nodejs\npm.cmd"
 if not defined NPM for /d %%d in ("%USERPROFILE%\.workbuddy\binaries\node\versions\*") do (
     if not defined NPM if exist "%%~fd\npm.cmd" set "NPM=%%~fd\npm.cmd"
 )
 if not defined NPM (
-    echo        [错误] 未找到 npm! 请安装 Node.js (https://nodejs.org) 后重试。
+    echo        [错误] 未找到 npm! 请安装 Node.js ^(https://nodejs.org^) 后重试。
     pause
     exit /b 1
 )
 
 rem -- 依赖缺失时自动安装 --
 if not exist "%FRONTEND%\node_modules" (
-    echo        首次运行, 正在安装前端依赖(约 1 分钟)...
+    echo        首次运行, 正在安装前端依赖^(约 1 分钟^)...
     cd /d "%FRONTEND%"
     call !NPM! install --registry=https://registry.npmmirror.com --no-audit --no-fund
     if errorlevel 1 (

@@ -12,6 +12,7 @@ import { adminLogin, setAdminSession } from './api/admin.js'
 import { connect as connectRealtime, close as closeRealtime, setUnread } from './net/realtime.js'
 import { gameEntryTick } from './composables/gameEntry.js'
 import { getUnread } from './api/message.js'
+import { startNaiwa } from './api/naiwa.js'
 
 // 唯一可进入后台的账号，与后端 AdminServiceImpl.SUPER_ADMIN_USERNAME 保持一致
 const BACKEND_ADMIN_NAME = '朵朵'
@@ -24,6 +25,9 @@ const currentUser = ref(null)
 const adminInfo = ref(null)
 
 onMounted(() => {
+  // 打开项目网页就唤起奶蛙桌宠（后端避免重复启动）；失败时静默，不影响页面使用
+  startNaiwa().catch(() => {})
+
   // 刷新页面后保持登录态：家长回到家长首页，小朋友回到儿童首页
   // 优先读 sessionStorage（每个标签页独立，支持同机多账号）；
   // 兼容旧版存 localStorage 的数据，回退读取一次
